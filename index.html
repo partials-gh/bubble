@@ -1697,47 +1697,85 @@ function hideCbPending() {
 
 async function handleChatBubbleAuth(data) {
   // data = { user_id, username, email }
-  const cbUserId  = data.user_id;
-  const cbUsername = data.username;
+  const cbUserId   = data.user_id;
+  const cbUsername = data.username || 'user_' + data.user_id.slice(0, 8);
   const cbEmail    = data.email;
 
-  // Derive a stable email+password for this CB user in Bubble's auth
-  const derivedEmail = `cb_${cbUserId}${CB_EMAIL_SUFFIX}`;
-  // Password is deterministic: sha-ish using btoa of user_id repeated
+  const derivedEmail    = `cb_${cbUserId}${CB_EMAIL_SUFFIX}`;
   const derivedPassword = btoa(`cb_secret_${cbUserId}_bubble_2025`).slice(0, 32) + 'Aa1!';
 
-  showAuthError('');
-  const errEl = document.getElementById('auth-error');
-  errEl.classList.remove('visible');
+  document.getElementById('auth-error').classList.remove('visible');
 
-  // Try signing in first
+  // ── Step 1: try sign in (existing CB user) ──
   const { data: signInData, error: signInErr } = await sb.auth.signInWithPassword({
     email: derivedEmail, password: derivedPassword
   });
 
   if (!signInErr && signInData?.user) {
-    // Existing user — load profile
     currentUser = signInData.user;
-    await loadCurrentProfile();
+    // Profile may or may not exist — loadCurrentProfile handles both
+    await loadCurrentProfileCB(cbUsername);
     return;
   }
 
-  // New user — sign up
+  // ── Step 2: new CB user — sign up ──
   const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
     email: derivedEmail, password: derivedPassword
   });
-
   if (signUpErr) { showAuthError('Chat Bubble auth failed: ' + signUpErr.message); return; }
-  currentUser = signUpData.user;
 
-  // Go to onboarding with CB username pre-filled
-  showOnboard();
-  setTimeout(() => {
-    const unInput = document.getElementById('onboard-username');
-    const dnInput = document.getElementById('onboard-display');
-    if (unInput) { unInput.value = cbUsername; checkUsernameAvail(cbUsername); }
-    if (dnInput) { dnInput.value = cbUsername; }
-  }, 100);
+  // After signUp, session may not be active yet — sign in immediately to get a real session
+  const { data: signInData2, error: signInErr2 } = await sb.auth.signInWithPassword({
+    email: derivedEmail, password: derivedPassword
+  });
+  if (signInErr2) { showAuthError('Chat Bubble auth failed: ' + signInErr2.message); return; }
+
+  currentUser = signInData2.user;
+  await loadCurrentProfileCB(cbUsername);
+}
+
+async function loadCurrentProfileCB(cbUsername) {
+  // Check if profile already exists
+  const { data: existing } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (existing) {
+    // Profile exists — just log in, no onboarding
+    currentProfile = existing;
+    updateNavUser();
+    await loadMyLikes();
+    await loadMyFollowing();
+    showPage('app-page');
+    showView('feed');
+    loadWhoToFollow();
+    loadTrending();
+    return;
+  }
+
+  // New profile — silently create it using CB username, no onboarding
+  // Handle username conflicts by appending a short suffix
+  let username = cbUsername.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 20);
+  const { data: taken } = await sb.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (taken) username = username.slice(0, 15) + '_' + Math.random().toString(36).slice(2, 6);
+
+  const { error: insertErr } = await sb.from('profiles').insert({
+    id:           currentUser.id,
+    username:     username,
+    display_name: cbUsername,
+    bio:          '',
+    avatar_url:   ''
+  });
+
+  if (insertErr) { showAuthError('Failed to create profile: ' + insertErr.message); return; }
+
+  const { data: newProfile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = newProfile;
+  updateNavUser();
+  await loadMyLikes();
+  await loadMyFollowing();
+  showPage('app-page');
+  showView('feed');
+  loadWhoToFollow();
+  loadTrending();
+  showToast('Welcome to Bubble, ' + username + '!', 'success');
 }
 
 init();
