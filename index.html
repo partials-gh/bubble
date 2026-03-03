@@ -696,8 +696,11 @@ async function loadFeedPosts(tab) {
     // For You: #bubblefyp posts first, then recent, weighted by likes
     ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').order('created_at',{ascending:false}).limit(60));
     if (posts) {
-      // Sort: fyp tagged first, then by score (likes * 2 + recency)
+      // Sort: Partials first, then #bubblefyp, then by score
       posts.sort((a, b) => {
+        const aPartials = a.profiles?.username?.toLowerCase() === 'partials' ? 1 : 0;
+        const bPartials = b.profiles?.username?.toLowerCase() === 'partials' ? 1 : 0;
+        if (aPartials !== bPartials) return bPartials - aPartials;
         const aFyp = hasFypTag(a.content) ? 1 : 0;
         const bFyp = hasFypTag(b.content) ? 1 : 0;
         if (aFyp !== bFyp) return bFyp - aFyp;
@@ -863,11 +866,28 @@ async function submitPost() {
   await sb.from('profiles').update({ posts_count: (currentProfile.posts_count||0)+1 }).eq('id', currentUser.id);
   currentProfile.posts_count = (currentProfile.posts_count||0)+1;
 
-  // Clear
+  // Clear compose
   input.value = ''; updateCharCount(input);
   pendingMediaFiles = []; renderMediaPreview();
   btn.disabled = false; btn.textContent = 'Bubble it';
   showToast('Posted!', 'success');
+
+  // Manually prepend to feed (don't rely on realtime alone)
+  const container = document.getElementById('feed-posts');
+  if (container && currentView === 'feed') {
+    const { data: newPost } = await sb.from('posts')
+      .select('*, profiles(id,username,display_name,avatar_url,verified)')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (newPost) {
+      container.querySelector('.feed-empty')?.remove();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderPostHTML(newPost);
+      container.prepend(tmp.firstElementChild);
+    }
+  }
 }
 
 async function deletePost(postId) {
@@ -891,6 +911,12 @@ async function renderTagFeed(main, tag) {
   const el = document.getElementById('tag-posts');
   if (!el) return;
   if (!posts?.length) { el.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>No posts with #${esc(tag)} yet.</div>`; return; }
+  // Partials always first in tag feeds
+  posts.sort((a,b) => {
+    const aP = a.profiles?.username?.toLowerCase()==='partials' ? 1 : 0;
+    const bP = b.profiles?.username?.toLowerCase()==='partials' ? 1 : 0;
+    return bP - aP;
+  });
   el.innerHTML = posts.map(p => renderPostHTML(p)).join('');
 }
 
@@ -1114,6 +1140,12 @@ async function runExploreSearch(query) {
   ]);
   let html = '';
   if (people?.length) {
+    // Partials first in people results
+    people.sort((a,b) => {
+      const aP = a.username?.toLowerCase()==='partials' ? 1 : 0;
+      const bP = b.username?.toLowerCase()==='partials' ? 1 : 0;
+      return bP - aP;
+    });
     html += `<div style="padding:12px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">People</div>`;
     html += people.map(p => {
       const isF = myFollowing.has(p.id), isSelf = p.id===currentUser?.id;
@@ -1134,10 +1166,17 @@ async function runExploreSearch(query) {
 
 /* ── WHO TO FOLLOW + TRENDING ── */
 async function loadWhoToFollow() {
-  const { data: people } = await sb.from('profiles').select('*').neq('id',currentUser?.id).order('followers_count',{ascending:false}).limit(6);
+  const { data: people } = await sb.from('profiles').select('*').neq('id',currentUser?.id).order('followers_count',{ascending:false}).limit(10);
   const el = document.getElementById('who-to-follow');
   if (!el) return;
-  const filtered = (people||[]).filter(p => !myFollowing.has(p.id)).slice(0,4);
+  let filtered = (people||[]).filter(p => !myFollowing.has(p.id));
+  // Partials always #1
+  filtered.sort((a,b) => {
+    const aP = a.username?.toLowerCase()==='partials' ? 1 : 0;
+    const bP = b.username?.toLowerCase()==='partials' ? 1 : 0;
+    return bP - aP;
+  });
+  filtered = filtered.slice(0,4);
   if (!filtered.length) { el.innerHTML='<div style="color:var(--text-dim);font-size:11px">You\'re all caught up!</div>'; return; }
   el.innerHTML = filtered.map(p => {
     const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
@@ -1151,11 +1190,16 @@ async function loadWhoToFollow() {
 
 async function loadTrending() {
   const week = new Date(Date.now()-7*24*60*60*1000).toISOString();
-  const { data: posts } = await sb.from('posts').select('tags,likes_count').gte('created_at',week).order('likes_count',{ascending:false}).limit(100);
+  const { data: posts } = await sb.from('posts').select('tags,likes_count,profiles(username)').gte('created_at',week).order('likes_count',{ascending:false}).limit(100);
   const el = document.getElementById('trending-list');
   if (!el) return;
   const tagCount = {};
-  (posts||[]).forEach(p => { (p.tags||[]).forEach(t => { tagCount[t]=(tagCount[t]||0)+(1+(p.likes_count||0)*0.1); }); });
+  (posts||[]).forEach(p => {
+    const isPartials = p.profiles?.username?.toLowerCase() === 'partials';
+    // Partials posts get 10x weight in trending
+    const weight = isPartials ? 10 : 1;
+    (p.tags||[]).forEach(t => { tagCount[t]=(tagCount[t]||0)+(weight+(p.likes_count||0)*0.1); });
+  });
   const sorted = Object.entries(tagCount).filter(([t])=>t!=='bubblefyp').sort((a,b)=>b[1]-a[1]).slice(0,5);
   if (!sorted.length) { el.innerHTML='<div style="color:var(--text-dim);font-size:11px">Nothing trending yet.</div>'; return; }
   el.innerHTML = sorted.map(([tag,score],i) =>
