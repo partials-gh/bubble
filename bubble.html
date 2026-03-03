@@ -148,6 +148,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--m
 .post-header{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap;}
 .post-name{font-size:13px;color:var(--text);font-weight:500;}
 .post-handle{font-size:11px;color:var(--text-muted);}
+.verified-badge{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent);border-radius:50%;flex-shrink:0;vertical-align:middle;margin-left:2px;}
+.verified-badge svg{width:8px;height:8px;stroke:#061208;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
+.profile-verified{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--accent);border-radius:50%;flex-shrink:0;vertical-align:middle;margin-left:4px;}
+.profile-verified svg{width:10px;height:10px;stroke:#061208;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
 .post-dot{font-size:11px;color:var(--text-dim);}
 .post-time{font-size:11px;color:var(--text-dim);}
 .post-content{font-size:14px;color:var(--text);line-height:1.65;word-break:break-word;margin-bottom:10px;}
@@ -601,6 +605,11 @@ function showView(view, data=null) {
 }
 
 /* ── MARKDOWN + TAGS + MENTIONS ── */
+function verifiedBadge(size='sm') {
+  const s = size === 'lg' ? 'profile-verified' : 'verified-badge';
+  return `<span class="${s}" title="Verified"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+}
+
 function renderContent(raw) {
   if (!raw) return '';
   let t = esc(raw);
@@ -682,10 +691,10 @@ async function loadFeedPosts(tab) {
 
   if (tab === 'following') {
     if (!myFollowing.size) { container.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>Follow people to see their posts here.</div>`; return; }
-    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').in('user_id',[...myFollowing]).order('created_at',{ascending:false}).limit(40));
+    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').in('user_id',[...myFollowing]).order('created_at',{ascending:false}).limit(40));
   } else {
     // For You: #bubblefyp posts first, then recent, weighted by likes
-    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(60));
+    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').order('created_at',{ascending:false}).limit(60));
     if (posts) {
       // Sort: fyp tagged first, then by score (likes * 2 + recency)
       posts.sort((a, b) => {
@@ -709,7 +718,7 @@ function subscribeToFeed() {
   if (feedChannel) feedChannel.unsubscribe();
   feedChannel = sb.channel('public-feed')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, async ({new:row}) => {
-      const {data:post} = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('id',row.id).single();
+      const {data:post} = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').eq('id',row.id).single();
       if (!post) return;
       const container = document.getElementById('feed-posts');
       if (!container) return;
@@ -739,7 +748,7 @@ function renderPostHTML(post) {
     <div class="post-avatar" onclick="event.stopPropagation();openProfileById('${p?.id}')">${avInner}</div>
     <div class="post-body">
       <div class="post-header">
-        <span class="post-name" onclick="event.stopPropagation();openProfileById('${p?.id}')">${esc(p?.display_name||p?.username||'?')}</span>
+        <span class="post-name" onclick="event.stopPropagation();openProfileById('${p?.id}')">${esc(p?.display_name||p?.username||'?')}${p?.verified||p?.username?.toLowerCase()==='partials'?verifiedBadge():''}${''}</span>
         <span class="post-handle">@${esc(p?.username||'?')}</span>
         <span class="post-dot">·</span>
         <span class="post-time">${relativeTime(post.created_at)}</span>
@@ -878,7 +887,7 @@ async function renderTagFeed(main, tag) {
       <span class="feed-header-title">#${esc(tag)}</span>
     </div>
     <div id="tag-posts"><div class="feed-loader">Loading…</div></div>`;
-  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').contains('tags',[tag.toLowerCase()]).order('likes_count',{ascending:false}).limit(40);
+  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').contains('tags',[tag.toLowerCase()]).order('likes_count',{ascending:false}).limit(40);
   const el = document.getElementById('tag-posts');
   if (!el) return;
   if (!posts?.length) { el.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>No posts with #${esc(tag)} yet.</div>`; return; }
@@ -906,7 +915,7 @@ async function toggleLike(postId, btn) {
 
 /* ── POST DETAIL ── */
 async function openPost(postId) {
-  const { data: post } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('id',postId).single();
+  const { data: post } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').eq('id',postId).single();
   if (post) showView('post', post);
 }
 
@@ -928,7 +937,7 @@ async function renderPostDetail(main, post) {
       <div style="display:flex;gap:10px;margin-bottom:12px">
         <div class="post-avatar" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${avInner}</div>
         <div>
-          <div class="post-name" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${esc(p?.display_name||p?.username||'?')}</div>
+          <div class="post-name" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${esc(p?.display_name||p?.username||'?')}${p?.verified||p?.username?.toLowerCase()==='partials'?verifiedBadge():''}</div>
           <div class="post-handle">@${esc(p?.username||'?')}</div>
         </div>
       </div>
@@ -956,7 +965,7 @@ async function renderPostDetail(main, post) {
 }
 
 async function loadComments(postId) {
-  const { data: comments } = await sb.from('comments').select('*, profiles(id,username,display_name,avatar_url)').eq('post_id',postId).order('created_at',{ascending:true});
+  const { data: comments } = await sb.from('comments').select('*, profiles(id,username,display_name,avatar_url,verified)').eq('post_id',postId).order('created_at',{ascending:true});
   const list = document.getElementById('comments-list');
   if (!list) return;
   if (!comments?.length) { list.innerHTML = `<div class="feed-empty" style="padding:30px 20px">No replies yet.</div>`; return; }
@@ -1030,7 +1039,7 @@ async function renderProfile(main, profile) {
           : `<button class="profile-follow-btn ${isFollowing?'following':'follow'}" id="profile-follow-btn" onclick="toggleFollowProfile('${profile.id}',this)">${isFollowing?'Following':'Follow'}</button>`
         }
       </div>
-      <div class="profile-display-name">${esc(profile.display_name||profile.username)}</div>
+      <div class="profile-display-name">${esc(profile.display_name||profile.username)}${profile.verified||profile.username?.toLowerCase()==="partials"?verifiedBadge("lg"):""}</div>
       <div class="profile-handle">@${esc(profile.username)}</div>
       ${profile.bio?`<div class="profile-bio">${esc(profile.bio)}</div>`:''}
       <div class="profile-stats">
@@ -1044,7 +1053,7 @@ async function renderProfile(main, profile) {
 }
 
 async function loadProfilePosts(userId) {
-  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('user_id',userId).order('created_at',{ascending:false}).limit(50);
+  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').eq('user_id',userId).order('created_at',{ascending:false}).limit(50);
   const el = document.getElementById('profile-posts');
   if (!el) return;
   if (!posts?.length) { el.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>No posts yet.</div>`; return; }
@@ -1095,12 +1104,12 @@ async function runExploreSearch(query) {
   if (!el) return;
   el.innerHTML = '<div class="feed-loader">Searching…</div>';
   if (!query.trim()) {
-    const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(30);
+    const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').order('created_at',{ascending:false}).limit(30);
     el.innerHTML = (posts||[]).map(p => renderPostHTML(p)).join('') || '<div class="feed-empty">Nothing yet.</div>';
     return;
   }
   const [{data:posts},{data:people}] = await Promise.all([
-    sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').ilike('content',`%${query}%`).order('created_at',{ascending:false}).limit(20),
+    sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').ilike('content',`%${query}%`).order('created_at',{ascending:false}).limit(20),
     sb.from('profiles').select('*').or(`username.ilike.%${query}%,display_name.ilike.%${query}%`).limit(8)
   ]);
   let html = '';
@@ -1111,7 +1120,7 @@ async function runExploreSearch(query) {
       const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
       return `<div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
         <div class="who-avatar" onclick="openProfileById('${p.id}')">${av}</div>
-        <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}</div><div class="who-handle">@${esc(p.username)}</div></div>
+        <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}${p.verified||p.username?.toLowerCase()==="partials"?verifiedBadge():""}</div><div class="who-handle">@${esc(p.username)}</div></div>
         ${!isSelf?`<button class="follow-btn ${isF?'following':'follow'}" onclick="toggleFollowWho('${p.id}',this)">${isF?'Following':'Follow'}</button>`:''}
       </div>`;
     }).join('');
@@ -1134,7 +1143,7 @@ async function loadWhoToFollow() {
     const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
     return `<div class="who-item">
       <div class="who-avatar" onclick="openProfileById('${p.id}')">${av}</div>
-      <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}</div><div class="who-handle">@${esc(p.username)}</div></div>
+      <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}${p.verified||p.username?.toLowerCase()==="partials"?verifiedBadge():""}</div><div class="who-handle">@${esc(p.username)}</div></div>
       <button class="follow-btn follow" onclick="toggleFollowWho('${p.id}',this)">Follow</button>
     </div>`;
   }).join('');
