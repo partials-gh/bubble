@@ -10,647 +10,319 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg:           #0b0b0d;
-  --surface:      #131316;
-  --surface2:     #1a1a1f;
-  --surface3:     #202026;
-  --border:       #252529;
-  --border-strong:#333339;
-  --text:         #e4e2dc;
-  --text-muted:   #565660;
-  --text-dim:     #353540;
-  --accent:       #4ade80;
-  --accent-dim:   #162a1e;
-  --accent-hover: #22c55e;
-  --danger:       #f87171;
-  --mono:         'DM Mono', monospace;
-  --serif:        'Fraunces', serif;
+  --bg:#0b0b0d; --surface:#131316; --surface2:#1a1a1f; --surface3:#202026;
+  --border:#252529; --border-strong:#333339;
+  --text:#e4e2dc; --text-muted:#565660; --text-dim:#353540;
+  --accent:#4ade80; --accent-dim:#162a1e; --accent-hover:#22c55e;
+  --danger:#f87171; --mono:'DM Mono',monospace; --serif:'Fraunces',serif;
 }
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:hidden;}
+*{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.page{display:none;min-height:100vh;}
+.page.active{display:block;}
 
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6; overflow-x: hidden; }
+/* AUTH */
+#auth-page{display:none;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);position:relative;overflow:hidden;}
+#auth-page.active{display:flex;}
+.auth-grid-bg{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 60% at 50% 50%,black 40%,transparent 100%);}
+.auth-glow{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(74,222,128,0.06) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+.auth-card{width:400px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px;box-shadow:0 40px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.03) inset;position:relative;z-index:1;animation:cardIn 0.5s cubic-bezier(0.2,0,0,1);max-height:calc(100vh - 32px);overflow-y:auto;}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:none}}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:32px;}
+.auth-logo{width:34px;height:34px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.25);border-radius:10px;display:grid;place-items:center;}
+.auth-logo svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.auth-brand-name{font-family:var(--serif);font-weight:200;font-size:20px;letter-spacing:-0.5px;}
+.auth-title{font-family:var(--serif);font-weight:200;font-size:26px;letter-spacing:-0.8px;margin-bottom:4px;}
+.auth-sub{font-size:11px;color:var(--text-muted);margin-bottom:28px;}
+.form-field{margin-bottom:14px;}
+.form-label{display:block;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+.form-input{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color 0.15s,background 0.15s;-webkit-user-select:text;user-select:text;}
+.form-input:focus{border-color:var(--accent);background:var(--surface3);}
+.form-input::placeholder{color:var(--text-dim);}
+.auth-btn{width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#061208;font-family:var(--mono);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;margin-top:6px;}
+.auth-btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 24px rgba(74,222,128,0.25);}
+.auth-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;filter:none;box-shadow:none;}
+.auth-switch{text-align:center;margin-top:20px;font-size:12px;color:var(--text-muted);}
+.auth-switch a{color:var(--accent);text-decoration:none;cursor:pointer;}
+.auth-switch a:hover{text-decoration:underline;}
+.auth-error{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--danger);margin-bottom:16px;display:none;line-height:1.5;}
+.auth-error.visible{display:block;}
+.pw-rules{font-size:10px;color:var(--text-dim);margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;}
+.pw-rule{padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--bg);transition:all 0.2s;}
+.pw-rule.met{color:var(--accent);border-color:rgba(74,222,128,0.3);background:var(--accent-dim);}
+.cb-auth-btn{width:100%;padding:11px;border-radius:10px;border:1px solid rgba(74,222,128,0.25);background:var(--accent-dim);color:var(--accent);font-family:var(--mono);font-size:13px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:18px;}
+.cb-auth-btn:hover{background:rgba(74,222,128,0.15);border-color:rgba(74,222,128,0.4);transform:translateY(-1px);box-shadow:0 6px 20px rgba(74,222,128,0.1);}
+.cb-auth-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.auth-divider{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.auth-divider-line{flex:1;height:1px;background:var(--border);}
+.auth-divider-text{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap;}
+.cb-pending{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;display:none;align-items:center;gap:12px;}
+.cb-pending.visible{display:flex;}
+.cb-pending-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:cbPulse 1.2s ease-in-out infinite;}
+@keyframes cbPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.cb-pending-text{font-size:12px;color:var(--text-muted);flex:1;}
+.cb-pending-cancel{font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;font-family:var(--mono);padding:0;transition:color 0.15s;}
+.cb-pending-cancel:hover{color:var(--danger);}
+.username-check{font-size:10px;margin-top:5px;}
+.username-check.ok{color:var(--accent);}
+.username-check.err{color:var(--danger);}
 
-/* ── SCROLLBAR ── */
-* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* APP */
+#app-page{display:none;}
+#app-page.active{display:block;}
+.app-layout{display:grid;grid-template-columns:240px 1fr 280px;min-height:100vh;max-width:1200px;margin:0 auto;}
 
-/* ── PAGES ── */
-.page { display: none; min-height: 100vh; }
-.page.active { display: block; }
+/* LEFT SIDEBAR */
+.left-sidebar{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:24px 16px;border-right:1px solid var(--border);background:var(--bg);}
+.nav-brand{display:flex;align-items:center;gap:10px;margin-bottom:36px;padding:0 6px;}
+.nav-logo{width:30px;height:30px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);border-radius:8px;display:grid;place-items:center;}
+.nav-logo svg{width:14px;height:14px;stroke:var(--accent);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.nav-brand-name{font-family:var(--serif);font-weight:200;font-size:18px;letter-spacing:-0.4px;}
+.nav-items{flex:1;display:flex;flex-direction:column;gap:2px;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all 0.15s;border:none;background:none;font-family:var(--mono);font-size:13px;color:var(--text-muted);text-align:left;width:100%;}
+.nav-item:hover{color:var(--text);background:var(--surface);}
+.nav-item.active{color:var(--accent);background:var(--accent-dim);}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+.nav-post-btn{width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#061208;font-family:var(--mono);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.nav-post-btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 20px rgba(74,222,128,0.2);}
+.nav-post-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.nav-user{margin-top:24px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.15s;position:relative;}
+.nav-user:hover{border-color:var(--border-strong);background:var(--surface2);}
+.nav-avatar{width:32px;height:32px;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);display:grid;place-items:center;font-family:var(--serif);font-size:14px;font-weight:200;color:var(--accent);text-transform:uppercase;flex-shrink:0;overflow:hidden;}
+.nav-avatar img{width:100%;height:100%;object-fit:cover;}
+.nav-user-info{flex:1;min-width:0;}
+.nav-user-name{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-user-handle{font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-user-dropdown{position:absolute;bottom:calc(100% + 8px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 12px 40px rgba(0,0,0,0.6);display:none;z-index:100;}
+.nav-user-dropdown.open{display:block;}
+.nav-dd-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:12px;color:var(--text-muted);cursor:pointer;transition:all 0.1s;border:none;background:none;width:100%;font-family:var(--mono);text-align:left;}
+.nav-dd-item:hover{color:var(--text);background:var(--surface3);}
+.nav-dd-item.danger:hover{color:var(--danger);background:rgba(248,113,113,0.08);}
+.nav-dd-item svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
 
-/* ══════════════════════════════════
-   AUTH PAGE
-══════════════════════════════════ */
-#auth-page {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: var(--bg);
-  position: relative;
-  overflow: hidden;
-}
-#auth-page.active { display: flex; }
+/* MAIN FEED */
+.main-feed{border-right:1px solid var(--border);min-height:100vh;}
+.feed-header{position:sticky;top:0;z-index:50;background:rgba(11,11,13,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;}
+.feed-header-title{font-family:var(--serif);font-weight:200;font-size:18px;letter-spacing:-0.4px;}
+.feed-tabs{display:flex;gap:0;}
+.feed-tab{padding:6px 16px;border:1px solid var(--border);background:none;font-family:var(--mono);font-size:11px;color:var(--text-muted);cursor:pointer;transition:all 0.15s;}
+.feed-tab:first-child{border-radius:8px 0 0 8px;}
+.feed-tab:last-child{border-radius:0 8px 8px 0;border-left:none;}
+.feed-tab.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(74,222,128,0.3);}
 
-.auth-grid-bg {
-  position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 40%, transparent 100%);
-}
-.auth-glow {
-  position: absolute; width: 500px; height: 500px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(74,222,128,0.06) 0%, transparent 70%);
-  top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
-}
+/* COMPOSE */
+.compose-box{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;}
+.compose-avatar{width:36px;height:36px;border-radius:9px;flex-shrink:0;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);display:grid;place-items:center;font-family:var(--serif);font-size:15px;color:var(--accent);text-transform:uppercase;overflow:hidden;}
+.compose-avatar img{width:100%;height:100%;object-fit:cover;}
+.compose-right{flex:1;}
+.compose-textarea{width:100%;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.6;resize:none;min-height:60px;-webkit-user-select:text;user-select:text;}
+.compose-textarea::placeholder{color:var(--text-dim);}
+/* media preview */
+.compose-media-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.compose-media-thumb{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+.compose-media-thumb img,.compose-media-thumb video{width:100%;height:100%;object-fit:cover;}
+.compose-media-remove{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;color:#fff;cursor:pointer;font-size:10px;display:grid;place-items:center;line-height:1;}
+.compose-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.compose-tools{display:flex;gap:4px;}
+.compose-tool{width:30px;height:30px;border-radius:7px;border:1px solid transparent;background:none;color:var(--text-muted);cursor:pointer;display:grid;place-items:center;font-size:13px;transition:all 0.15s;}
+.compose-tool:hover{color:var(--accent);border-color:rgba(74,222,128,0.2);background:var(--accent-dim);}
+.compose-tool svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.compose-right-footer{display:flex;align-items:center;gap:10px;}
+.compose-char{font-size:10px;color:var(--text-dim);}
+.compose-char.warn{color:#fbbf24;}
+.compose-char.danger{color:var(--danger);}
+.compose-send{padding:7px 18px;border-radius:8px;border:none;background:var(--accent);color:#061208;font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
+.compose-send:hover{filter:brightness(1.08);}
+.compose-send:disabled{opacity:0.4;cursor:not-allowed;}
 
-.auth-card {
-  width: 400px; max-width: calc(100vw - 32px);
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 20px; padding: 36px;
-  box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03) inset;
-  position: relative; z-index: 1;
-  animation: cardIn 0.5s cubic-bezier(0.2,0,0,1);
-  max-height: calc(100vh - 32px); overflow-y: auto;
-}
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+/* POSTS */
+.post{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;transition:background 0.1s;cursor:pointer;animation:postIn 0.3s cubic-bezier(0.2,0,0,1);}
+@keyframes postIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.post:hover{background:rgba(255,255,255,0.015);}
+.post-avatar{width:36px;height:36px;border-radius:9px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--serif);font-size:15px;color:var(--text-muted);text-transform:uppercase;overflow:hidden;}
+.post-avatar img{width:100%;height:100%;object-fit:cover;}
+.post-body{flex:1;min-width:0;}
+.post-header{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap;}
+.post-name{font-size:13px;color:var(--text);font-weight:500;}
+.post-handle{font-size:11px;color:var(--text-muted);}
+.post-dot{font-size:11px;color:var(--text-dim);}
+.post-time{font-size:11px;color:var(--text-dim);}
+.post-content{font-size:14px;color:var(--text);line-height:1.65;word-break:break-word;margin-bottom:10px;}
+/* markdown in posts */
+.post-content em{font-style:italic;}
+.post-content strong{font-weight:700;}
+.post-content .tag{color:var(--accent);cursor:pointer;font-weight:500;}
+.post-content .tag:hover{text-decoration:underline;}
+.post-content .mention{color:#60a5fa;cursor:pointer;font-weight:500;}
+.post-content .mention:hover{text-decoration:underline;}
+.post-content .md-strike{text-decoration:line-through;opacity:0.6;}
+.post-content .md-under{text-decoration:underline;}
+.post-content code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px;}
+/* post media */
+.post-media{margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px;}
+.post-media-item{border-radius:10px;overflow:hidden;border:1px solid var(--border);max-width:100%;cursor:zoom-in;}
+.post-media-item img{max-width:100%;max-height:400px;display:block;object-fit:cover;}
+.post-media-item video{max-width:100%;max-height:400px;display:block;}
+.post-actions{display:flex;gap:4px;}
+.post-action{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:none;background:none;color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.post-action:hover{background:var(--surface2);}
+.post-action.like:hover{color:var(--danger);}
+.post-action.like.liked{color:var(--danger);}
+.post-action.comment:hover{color:var(--accent);}
+.post-action svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:all 0.15s;}
+.post-action.liked svg{fill:var(--danger);stroke:var(--danger);}
+.feed-empty{padding:60px 20px;text-align:center;color:var(--text-dim);font-size:12px;line-height:2;}
+.feed-empty-icon{font-size:32px;margin-bottom:12px;opacity:0.3;}
+.feed-loader{padding:32px;text-align:center;color:var(--text-dim);font-size:11px;}
 
-.auth-brand {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 32px;
-}
-.auth-logo {
-  width: 34px; height: 34px;
-  background: var(--accent-dim); border: 1px solid rgba(74,222,128,0.25);
-  border-radius: 10px; display: grid; place-items: center;
-}
-.auth-logo svg { width: 16px; height: 16px; stroke: var(--accent); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.auth-brand-name { font-family: var(--serif); font-weight: 200; font-size: 20px; letter-spacing: -0.5px; }
+/* RIGHT SIDEBAR */
+.right-sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;padding:24px 16px;background:var(--bg);}
+.sidebar-search{position:relative;margin-bottom:20px;}
+.sidebar-search input{width:100%;padding:9px 14px 9px 36px;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color 0.15s;}
+.sidebar-search input:focus{border-color:var(--accent);}
+.sidebar-search input::placeholder{color:var(--text-dim);}
+.sidebar-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;}
+.sidebar-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;}
+.sidebar-card-title{font-family:var(--serif);font-weight:200;font-size:15px;letter-spacing:-0.3px;margin-bottom:14px;color:var(--text);}
+.who-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.who-item:last-child{border-bottom:none;padding-bottom:0;}
+.who-avatar{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--serif);font-size:13px;color:var(--text-muted);text-transform:uppercase;flex-shrink:0;overflow:hidden;cursor:pointer;}
+.who-avatar img{width:100%;height:100%;object-fit:cover;}
+.who-info{flex:1;min-width:0;cursor:pointer;}
+.who-name{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.who-handle{font-size:10px;color:var(--text-muted);}
+.follow-btn{padding:5px 12px;border-radius:7px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;flex-shrink:0;}
+.follow-btn.follow{border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);}
+.follow-btn.follow:hover{background:var(--accent);color:#061208;}
+.follow-btn.following{border:1px solid var(--border);background:none;color:var(--text-muted);}
+.follow-btn.following:hover{border-color:var(--danger);color:var(--danger);}
+.trend-item{padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.trend-item:last-child{border-bottom:none;padding-bottom:0;}
+.trend-item:hover .trend-tag{color:var(--accent);}
+.trend-cat{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px;}
+.trend-tag{font-size:13px;color:var(--text);transition:color 0.15s;}
+.trend-count{font-size:10px;color:var(--text-muted);margin-top:1px;}
 
-.auth-title { font-family: var(--serif); font-weight: 200; font-size: 26px; letter-spacing: -0.8px; margin-bottom: 4px; }
-.auth-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 28px; }
+/* PROFILE */
+.profile-header-banner{height:120px;background:linear-gradient(135deg,var(--accent-dim) 0%,var(--surface2) 50%,var(--surface3) 100%);border-bottom:1px solid var(--border);position:relative;}
+.profile-header-info{padding:0 20px 16px;border-bottom:1px solid var(--border);position:relative;}
+.profile-big-avatar{width:72px;height:72px;border-radius:16px;background:var(--accent-dim);border:3px solid var(--bg);display:grid;place-items:center;font-family:var(--serif);font-size:28px;color:var(--accent);text-transform:uppercase;position:absolute;top:-36px;left:20px;overflow:hidden;cursor:pointer;}
+.profile-big-avatar img{width:100%;height:100%;object-fit:cover;}
+.profile-actions-row{display:flex;justify-content:flex-end;padding-top:12px;gap:8px;}
+.profile-edit-btn,.profile-follow-btn{padding:7px 16px;border-radius:8px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.15s;}
+.profile-edit-btn{border:1px solid var(--border);background:none;color:var(--text-muted);}
+.profile-edit-btn:hover{color:var(--text);border-color:var(--border-strong);background:var(--surface2);}
+.profile-follow-btn.follow{border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);}
+.profile-follow-btn.follow:hover{background:var(--accent);color:#061208;}
+.profile-follow-btn.following{border:1px solid var(--border);background:none;color:var(--text-muted);}
+.profile-follow-btn.following:hover{border-color:var(--danger);color:var(--danger);}
+.profile-display-name{font-family:var(--serif);font-weight:200;font-size:20px;letter-spacing:-0.4px;margin-top:44px;margin-bottom:2px;}
+.profile-handle{font-size:12px;color:var(--text-muted);margin-bottom:10px;}
+.profile-bio{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;}
+.profile-stats{display:flex;gap:20px;}
+.profile-stat{cursor:pointer;}
+.profile-stat-num{font-size:14px;color:var(--text);font-weight:500;}
+.profile-stat-label{font-size:11px;color:var(--text-dim);}
 
-.form-field { margin-bottom: 14px; }
-.form-label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-.form-input {
-  width: 100%; padding: 11px 14px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 9px; color: var(--text); font-family: var(--mono); font-size: 13px;
-  outline: none; transition: border-color 0.15s, background 0.15s;
-  -webkit-user-select: text; user-select: text;
-}
-.form-input:focus { border-color: var(--accent); background: var(--surface3); }
-.form-input::placeholder { color: var(--text-dim); }
+/* POST DETAIL */
+.back-btn{display:flex;align-items:center;gap:8px;padding:14px 20px;color:var(--text-muted);font-size:13px;cursor:pointer;transition:color 0.15s;border:none;background:none;font-family:var(--mono);width:100%;text-align:left;}
+.back-btn:hover{color:var(--text);}
+.back-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.post-detail{padding:20px;border-bottom:1px solid var(--border);}
+.post-detail-content{font-size:18px;line-height:1.65;color:var(--text);margin-bottom:16px;word-break:break-word;}
+.post-detail-meta{font-size:11px;color:var(--text-muted);margin-bottom:14px;}
+.post-detail-stats{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:4px;}
+.post-detail-stat{font-size:12px;color:var(--text-muted);}
+.post-detail-stat strong{color:var(--text);}
+.comment{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;animation:postIn 0.3s cubic-bezier(0.2,0,0,1);}
+.comment-avatar{width:30px;height:30px;border-radius:7px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--serif);font-size:12px;color:var(--text-muted);text-transform:uppercase;overflow:hidden;}
+.comment-avatar img{width:100%;height:100%;object-fit:cover;}
+.comment-body{flex:1;}
+.comment-header{display:flex;align-items:baseline;gap:6px;margin-bottom:3px;}
+.comment-name{font-size:12px;color:var(--text);}
+.comment-handle{font-size:11px;color:var(--text-muted);}
+.comment-time{font-size:10px;color:var(--text-dim);}
+.comment-content{font-size:13px;color:var(--text);line-height:1.6;}
+.comment-compose{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;position:sticky;top:0;background:rgba(11,11,13,0.9);backdrop-filter:blur(12px);z-index:10;}
+.comment-textarea{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;resize:none;min-height:40px;max-height:100px;line-height:1.5;transition:border-color 0.15s;}
+.comment-textarea:focus{border-color:var(--accent);}
+.comment-textarea::placeholder{color:var(--text-dim);}
+.comment-send{padding:0 14px;border-radius:8px;border:none;background:var(--accent);color:#061208;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.15s;white-space:nowrap;align-self:flex-end;height:36px;}
+.comment-send:hover{filter:brightness(1.08);}
+.comment-send:disabled{opacity:0.4;cursor:not-allowed;}
 
-.auth-btn {
-  width: 100%; padding: 12px; border-radius: 10px; border: none;
-  background: var(--accent); color: #061208; font-family: var(--mono);
-  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; margin-top: 6px;
-}
-.auth-btn:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(74,222,128,0.25); }
-.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:16px;}
+.modal-backdrop.visible{display:flex;animation:bkIn 0.18s ease;}
+@keyframes bkIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:420px;max-width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.8);animation:mIn 0.22s cubic-bezier(0.2,0,0,1);max-height:calc(100vh - 32px);overflow-y:auto;}
+@keyframes mIn{from{opacity:0;transform:scale(0.93) translateY(10px)}to{opacity:1;transform:none}}
+.modal-header{padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-title{font-family:var(--serif);font-weight:200;font-size:19px;letter-spacing:-0.3px;}
+.modal-close{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;display:grid;place-items:center;font-size:16px;transition:all 0.12s;}
+.modal-close:hover{color:var(--text);background:var(--surface2);}
+.modal-body{padding:0 20px 20px;}
+.modal-btn{width:100%;padding:11px;border-radius:9px;border:none;background:var(--accent);color:#061208;font-family:var(--mono);font-size:13px;cursor:pointer;transition:all 0.15s;margin-top:4px;}
+.modal-btn:hover{filter:brightness(1.08);}
+.modal-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.modal-error{font-size:11px;color:var(--danger);margin-top:8px;min-height:16px;}
 
-.auth-switch { text-align: center; margin-top: 20px; font-size: 12px; color: var(--text-muted); }
-.auth-switch a { color: var(--accent); text-decoration: none; cursor: pointer; }
-.auth-switch a:hover { text-decoration: underline; }
+/* LIGHTBOX */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;display:none;align-items:center;justify-content:center;cursor:zoom-out;}
+.lightbox.open{display:flex;}
+.lightbox img,.lightbox video{max-width:92vw;max-height:92vh;border-radius:8px;object-fit:contain;}
 
-.auth-error {
-  background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
-  border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--danger);
-  margin-bottom: 16px; display: none; line-height: 1.5;
-}
-.auth-error.visible { display: block; }
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:12px;color:var(--text);z-index:9999;transition:transform 0.28s cubic-bezier(0.2,0,0,1),opacity 0.28s;opacity:0;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.success{border-color:rgba(74,222,128,0.3);color:var(--accent);}
+.toast.error{border-color:rgba(248,113,113,0.3);color:var(--danger);}
 
-.pw-rules { font-size: 10px; color: var(--text-dim); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; }
-.pw-rule { padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); transition: all 0.2s; }
-.pw-rule.met { color: var(--accent); border-color: rgba(74,222,128,0.3); background: var(--accent-dim); }
+/* MOBILE */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:200;justify-content:space-around;}
+.mobile-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 16px;color:var(--text-muted);cursor:pointer;transition:color 0.15s;border:none;background:none;font-family:var(--mono);}
+.mobile-nav-item.active{color:var(--accent);}
+.mobile-nav-item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.mobile-nav-item span{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;}
+@media(max-width:900px){.app-layout{grid-template-columns:1fr;}.left-sidebar{display:none;}.right-sidebar{display:none;}.mobile-nav{display:flex;}.main-feed{padding-bottom:70px;}}
+@media(min-width:901px) and (max-width:1100px){.app-layout{grid-template-columns:220px 1fr;}.right-sidebar{display:none;}}
 
-/* ══════════════════════════════════
-   APP LAYOUT
-══════════════════════════════════ */
-#app-page { display: none; }
-#app-page.active { display: block; }
+/* SQL setup */
+.sql-card{background:var(--surface);border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:20px;margin:20px;font-size:12px;line-height:1.7;}
+.sql-card h3{font-family:var(--serif);font-weight:200;font-size:16px;color:var(--accent);margin-bottom:8px;}
+.sql-code{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--text-muted);overflow-x:auto;white-space:pre;margin-top:10px;line-height:1.6;}
+.sql-copy-btn{margin-top:10px;padding:6px 14px;border-radius:7px;border:1px solid rgba(74,222,128,0.3);background:var(--accent-dim);color:var(--accent);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.sql-copy-btn:hover{background:var(--accent);color:#061208;}
 
-.app-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr 280px;
-  min-height: 100vh;
-  max-width: 1200px;
-  margin: 0 auto;
-  gap: 0;
-}
-
-/* ── LEFT SIDEBAR ── */
-.left-sidebar {
-  position: sticky; top: 0; height: 100vh;
-  display: flex; flex-direction: column;
-  padding: 24px 16px; border-right: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.nav-brand {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 36px; padding: 0 6px;
-}
-.nav-logo {
-  width: 30px; height: 30px;
-  background: var(--accent-dim); border: 1px solid rgba(74,222,128,0.2);
-  border-radius: 8px; display: grid; place-items: center;
-}
-.nav-logo svg { width: 14px; height: 14px; stroke: var(--accent); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.nav-brand-name { font-family: var(--serif); font-weight: 200; font-size: 18px; letter-spacing: -0.4px; }
-
-.nav-items { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.nav-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 10px; cursor: pointer;
-  transition: all 0.15s; border: none; background: none;
-  font-family: var(--mono); font-size: 13px; color: var(--text-muted);
-  text-align: left; width: 100%;
-}
-.nav-item:hover { color: var(--text); background: var(--surface); }
-.nav-item.active { color: var(--accent); background: var(--accent-dim); }
-.nav-item svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-.nav-item i { width: 16px; text-align: center; font-size: 14px; }
-
-.nav-post-btn {
-  width: 100%; padding: 11px; border-radius: 10px; border: none;
-  background: var(--accent); color: #061208; font-family: var(--mono);
-  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
-  margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.nav-post-btn:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,222,128,0.2); }
-.nav-post-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-.nav-user {
-  margin-top: 24px; padding: 10px 12px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; display: flex; align-items: center; gap: 10px;
-  cursor: pointer; transition: all 0.15s; position: relative;
-}
-.nav-user:hover { border-color: var(--border-strong); background: var(--surface2); }
-.nav-avatar {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: var(--accent-dim); border: 1px solid rgba(74,222,128,0.2);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 14px; font-weight: 200; color: var(--accent); text-transform: uppercase;
-  flex-shrink: 0; overflow: hidden;
-}
-.nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.nav-user-info { flex: 1; min-width: 0; }
-.nav-user-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-user-handle { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.nav-user-dropdown {
-  position: absolute; bottom: calc(100% + 8px); left: 0; right: 0;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-  display: none; z-index: 100;
-}
-.nav-user-dropdown.open { display: block; }
-.nav-dd-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px; border-radius: 6px; font-size: 12px;
-  color: var(--text-muted); cursor: pointer; transition: all 0.1s;
-  border: none; background: none; width: 100%; font-family: var(--mono); text-align: left;
-}
-.nav-dd-item:hover { color: var(--text); background: var(--surface3); }
-.nav-dd-item.danger:hover { color: var(--danger); background: rgba(248,113,113,0.08); }
-.nav-dd-item svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ── MAIN FEED ── */
-.main-feed {
-  border-right: 1px solid var(--border);
-  min-height: 100vh;
-}
-
-.feed-header {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(11,11,13,0.85); backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 20px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.feed-header-title { font-family: var(--serif); font-weight: 200; font-size: 18px; letter-spacing: -0.4px; }
-.feed-tabs { display: flex; gap: 0; }
-.feed-tab {
-  padding: 6px 16px; border: 1px solid var(--border); background: none;
-  font-family: var(--mono); font-size: 11px; color: var(--text-muted);
-  cursor: pointer; transition: all 0.15s;
-}
-.feed-tab:first-child { border-radius: 8px 0 0 8px; }
-.feed-tab:last-child { border-radius: 0 8px 8px 0; border-left: none; }
-.feed-tab.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(74,222,128,0.3); }
-
-/* Compose box */
-.compose-box {
-  padding: 18px 20px; border-bottom: 1px solid var(--border);
-  display: flex; gap: 12px;
-}
-.compose-avatar {
-  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
-  background: var(--accent-dim); border: 1px solid rgba(74,222,128,0.2);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 15px; color: var(--accent); text-transform: uppercase; overflow: hidden;
-}
-.compose-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.compose-right { flex: 1; }
-.compose-textarea {
-  width: 100%; background: none; border: none; outline: none;
-  color: var(--text); font-family: var(--mono); font-size: 14px;
-  line-height: 1.6; resize: none; min-height: 60px;
-  -webkit-user-select: text; user-select: text;
-}
-.compose-textarea::placeholder { color: var(--text-dim); }
-.compose-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
-}
-.compose-char {
-  font-size: 10px; color: var(--text-dim);
-}
-.compose-char.warn { color: #fbbf24; }
-.compose-char.danger { color: var(--danger); }
-.compose-send {
-  padding: 7px 18px; border-radius: 8px; border: none;
-  background: var(--accent); color: #061208; font-family: var(--mono);
-  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
-}
-.compose-send:hover { filter: brightness(1.08); }
-.compose-send:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Posts */
-.post {
-  padding: 18px 20px; border-bottom: 1px solid var(--border);
-  display: flex; gap: 12px; transition: background 0.1s; cursor: pointer;
-  animation: postIn 0.3s cubic-bezier(0.2,0,0,1);
-}
-@keyframes postIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.post:hover { background: rgba(255,255,255,0.015); }
-
-.post-avatar {
-  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
-  background: var(--surface2); border: 1px solid var(--border);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 15px; color: var(--text-muted); text-transform: uppercase;
-  overflow: hidden;
-}
-.post-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-.post-body { flex: 1; min-width: 0; }
-.post-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
-.post-name { font-size: 13px; color: var(--text); font-weight: 500; }
-.post-handle { font-size: 11px; color: var(--text-muted); }
-.post-dot { font-size: 11px; color: var(--text-dim); }
-.post-time { font-size: 11px; color: var(--text-dim); }
-.post-content { font-size: 14px; color: var(--text); line-height: 1.65; word-break: break-word; margin-bottom: 12px; white-space: pre-wrap; }
-
-.post-actions { display: flex; gap: 4px; }
-.post-action {
-  display: flex; align-items: center; gap: 5px;
-  padding: 5px 10px; border-radius: 7px; border: none;
-  background: none; color: var(--text-muted); font-family: var(--mono);
-  font-size: 11px; cursor: pointer; transition: all 0.15s;
-}
-.post-action:hover { background: var(--surface2); }
-.post-action.like:hover { color: var(--danger); }
-.post-action.like.liked { color: var(--danger); }
-.post-action.comment:hover { color: var(--accent); }
-.post-action svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: all 0.15s; }
-.post-action.liked svg { fill: var(--danger); stroke: var(--danger); }
-
-.feed-empty {
-  padding: 60px 20px; text-align: center;
-  color: var(--text-dim); font-size: 12px; line-height: 2;
-}
-.feed-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
-
-.feed-loader {
-  padding: 32px; text-align: center; color: var(--text-dim); font-size: 11px;
-}
-
-/* ── RIGHT SIDEBAR ── */
-.right-sidebar {
-  position: sticky; top: 0; height: 100vh; overflow-y: auto;
-  padding: 24px 16px; background: var(--bg);
-}
-
-.sidebar-search {
-  position: relative; margin-bottom: 20px;
-}
-.sidebar-search input {
-  width: 100%; padding: 9px 14px 9px 36px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 9px; color: var(--text); font-family: var(--mono);
-  font-size: 12px; outline: none; transition: border-color 0.15s;
-}
-.sidebar-search input:focus { border-color: var(--accent); }
-.sidebar-search input::placeholder { color: var(--text-dim); }
-.sidebar-search-icon {
-  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
-  color: var(--text-dim); font-size: 12px;
-}
-
-.sidebar-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px; margin-bottom: 16px;
-}
-.sidebar-card-title {
-  font-family: var(--serif); font-weight: 200; font-size: 15px;
-  letter-spacing: -0.3px; margin-bottom: 14px; color: var(--text);
-}
-
-.who-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-}
-.who-item:last-child { border-bottom: none; padding-bottom: 0; }
-.who-avatar {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: var(--surface2); border: 1px solid var(--border);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 13px; color: var(--text-muted); text-transform: uppercase;
-  flex-shrink: 0; overflow: hidden; cursor: pointer;
-}
-.who-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.who-info { flex: 1; min-width: 0; cursor: pointer; }
-.who-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.who-handle { font-size: 10px; color: var(--text-muted); }
-.follow-btn {
-  padding: 5px 12px; border-radius: 7px; font-family: var(--mono); font-size: 11px;
-  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
-}
-.follow-btn.follow { border: 1px solid var(--accent); background: var(--accent-dim); color: var(--accent); }
-.follow-btn.follow:hover { background: var(--accent); color: #061208; }
-.follow-btn.following { border: 1px solid var(--border); background: none; color: var(--text-muted); }
-.follow-btn.following:hover { border-color: var(--danger); color: var(--danger); }
-
-.trend-item { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
-.trend-item:last-child { border-bottom: none; padding-bottom: 0; }
-.trend-item:hover .trend-tag { color: var(--accent); }
-.trend-cat { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
-.trend-tag { font-size: 13px; color: var(--text); transition: color 0.15s; }
-.trend-count { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-
-/* ══════════════════════════════════
-   PROFILE PAGE
-══════════════════════════════════ */
-.profile-header-banner {
-  height: 120px;
-  background: linear-gradient(135deg, var(--accent-dim) 0%, var(--surface2) 50%, var(--surface3) 100%);
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-.profile-header-info {
-  padding: 0 20px 16px; border-bottom: 1px solid var(--border);
-  position: relative;
-}
-.profile-big-avatar {
-  width: 72px; height: 72px; border-radius: 16px;
-  background: var(--accent-dim); border: 3px solid var(--bg);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 28px; color: var(--accent); text-transform: uppercase;
-  position: absolute; top: -36px; left: 20px; overflow: hidden;
-}
-.profile-big-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.profile-actions-row { display: flex; justify-content: flex-end; padding-top: 12px; gap: 8px; }
-.profile-edit-btn, .profile-follow-btn {
-  padding: 7px 16px; border-radius: 8px; font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all 0.15s;
-}
-.profile-edit-btn { border: 1px solid var(--border); background: none; color: var(--text-muted); }
-.profile-edit-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface2); }
-.profile-follow-btn.follow { border: 1px solid var(--accent); background: var(--accent-dim); color: var(--accent); }
-.profile-follow-btn.follow:hover { background: var(--accent); color: #061208; }
-.profile-follow-btn.following { border: 1px solid var(--border); background: none; color: var(--text-muted); }
-.profile-follow-btn.following:hover { border-color: var(--danger); color: var(--danger); }
-.profile-display-name { font-family: var(--serif); font-weight: 200; font-size: 20px; letter-spacing: -0.4px; margin-top: 44px; margin-bottom: 2px; }
-.profile-handle { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
-.profile-bio { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
-.profile-stats { display: flex; gap: 20px; }
-.profile-stat { cursor: pointer; }
-.profile-stat:hover .profile-stat-label { color: var(--text-muted); }
-.profile-stat-num { font-size: 14px; color: var(--text); font-weight: 500; }
-.profile-stat-label { font-size: 11px; color: var(--text-dim); transition: color 0.15s; }
-
-/* ══════════════════════════════════
-   COMMENTS / POST DETAIL
-══════════════════════════════════ */
-.back-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 14px 20px; border-bottom: 1px solid var(--border);
-  color: var(--text-muted); font-size: 13px; cursor: pointer;
-  transition: color 0.15s; border: none; background: none;
-  font-family: var(--mono); width: 100%; text-align: left;
-}
-.back-btn:hover { color: var(--text); }
-.back-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-
-.post-detail { padding: 20px; border-bottom: 1px solid var(--border); }
-.post-detail-content { font-size: 18px; line-height: 1.65; color: var(--text); margin-bottom: 16px; white-space: pre-wrap; word-break: break-word; }
-.post-detail-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 14px; }
-.post-detail-stats {
-  display: flex; gap: 16px; padding: 14px 0; border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border); margin-bottom: 4px;
-}
-.post-detail-stat { font-size: 12px; color: var(--text-muted); }
-.post-detail-stat strong { color: var(--text); }
-
-.comments-list { }
-.comment {
-  padding: 14px 20px; border-bottom: 1px solid var(--border);
-  display: flex; gap: 10px;
-  animation: postIn 0.3s cubic-bezier(0.2,0,0,1);
-}
-.comment-avatar {
-  width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
-  background: var(--surface2); border: 1px solid var(--border);
-  display: grid; place-items: center; font-family: var(--serif);
-  font-size: 12px; color: var(--text-muted); text-transform: uppercase; overflow: hidden;
-}
-.comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.comment-body { flex: 1; }
-.comment-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
-.comment-name { font-size: 12px; color: var(--text); }
-.comment-handle { font-size: 11px; color: var(--text-muted); }
-.comment-time { font-size: 10px; color: var(--text-dim); }
-.comment-content { font-size: 13px; color: var(--text); line-height: 1.6; }
-
-.comment-compose {
-  padding: 14px 20px; border-bottom: 1px solid var(--border);
-  display: flex; gap: 10px; position: sticky; top: 0;
-  background: rgba(11,11,13,0.9); backdrop-filter: blur(12px); z-index: 10;
-}
-.comment-textarea {
-  flex: 1; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 9px; padding: 9px 12px; color: var(--text);
-  font-family: var(--mono); font-size: 13px; outline: none;
-  resize: none; min-height: 40px; max-height: 100px; line-height: 1.5;
-  transition: border-color 0.15s;
-}
-.comment-textarea:focus { border-color: var(--accent); }
-.comment-textarea::placeholder { color: var(--text-dim); }
-.comment-send {
-  padding: 0 14px; border-radius: 8px; border: none;
-  background: var(--accent); color: #061208; font-family: var(--mono);
-  font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; align-self: flex-end; height: 36px;
-}
-.comment-send:hover { filter: brightness(1.08); }
-.comment-send:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ══════════════════════════════════
-   MODALS
-══════════════════════════════════ */
-.modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000;
-  display: none; align-items: center; justify-content: center;
-  backdrop-filter: blur(8px); padding: 16px;
-}
-.modal-backdrop.visible { display: flex; animation: bkIn 0.18s ease; }
-@keyframes bkIn { from{opacity:0} to{opacity:1} }
-.modal {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; width: 420px; max-width: 100%;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.8);
-  animation: mIn 0.22s cubic-bezier(0.2,0,0,1);
-  max-height: calc(100vh - 32px); overflow-y: auto;
-}
-@keyframes mIn { from{opacity:0;transform:scale(0.93) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
-.modal-header { padding: 20px 20px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.modal-title { font-family: var(--serif); font-weight: 200; font-size: 19px; letter-spacing: -0.3px; }
-.modal-close { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; display: grid; place-items: center; font-size: 16px; transition: all 0.12s; }
-.modal-close:hover { color: var(--text); background: var(--surface2); }
-.modal-body { padding: 0 20px 20px; }
-.modal-btn { width: 100%; padding: 11px; border-radius: 9px; border: none; background: var(--accent); color: #061208; font-family: var(--mono); font-size: 13px; cursor: pointer; transition: all 0.15s; margin-top: 4px; }
-.modal-btn:hover { filter: brightness(1.08); }
-.modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.modal-error { font-size: 11px; color: var(--danger); margin-top: 8px; min-height: 16px; }
-
-/* ── TOAST ── */
-.toast {
-  position: fixed; bottom: 24px; left: 50%;
-  transform: translateX(-50%) translateY(60px);
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 18px; font-size: 12px;
-  color: var(--text); z-index: 9999;
-  transition: transform 0.28s cubic-bezier(0.2,0,0,1), opacity 0.28s;
-  opacity: 0; white-space: nowrap; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-}
-.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-.toast.success { border-color: rgba(74,222,128,0.3); color: var(--accent); }
-.toast.error { border-color: rgba(248,113,113,0.3); color: var(--danger); }
-
-/* ── MOBILE ── */
-.mobile-nav {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--surface); border-top: 1px solid var(--border);
-  padding: 8px 0 max(8px, env(safe-area-inset-bottom)); z-index: 200;
-  justify-content: space-around;
-}
-.mobile-nav-item {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 6px 16px; color: var(--text-muted); cursor: pointer;
-  transition: color 0.15s; border: none; background: none; font-family: var(--mono);
-}
-.mobile-nav-item.active { color: var(--accent); }
-.mobile-nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.mobile-nav-item span { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-@media (max-width: 900px) {
-  .app-layout { grid-template-columns: 1fr; }
-  .left-sidebar { display: none; }
-  .right-sidebar { display: none; }
-  .mobile-nav { display: flex; }
-  .main-feed { padding-bottom: 70px; }
-}
-@media (min-width: 901px) and (max-width: 1100px) {
-  .app-layout { grid-template-columns: 220px 1fr; }
-  .right-sidebar { display: none; }
-}
-
-/* ── SQL SETUP CARD ── */
-.sql-card {
-  background: var(--surface); border: 1px solid rgba(74,222,128,0.2);
-  border-radius: 12px; padding: 20px; margin: 20px;
-  font-size: 12px; line-height: 1.7;
-}
-.sql-card h3 { font-family: var(--serif); font-weight: 200; font-size: 16px; color: var(--accent); margin-bottom: 8px; }
-.sql-code {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  padding: 12px; font-size: 11px; color: var(--text-muted);
-  overflow-x: auto; white-space: pre; margin-top: 10px; line-height: 1.6;
-}
-.sql-copy-btn {
-  margin-top: 10px; padding: 6px 14px; border-radius: 7px; border: 1px solid rgba(74,222,128,0.3);
-  background: var(--accent-dim); color: var(--accent); font-family: var(--mono);
-  font-size: 11px; cursor: pointer; transition: all 0.15s;
-}
-.sql-copy-btn:hover { background: var(--accent); color: #061208; }
-
-.username-check { font-size: 10px; margin-top: 5px; }
-.username-check.ok { color: var(--accent); }
-.username-check.err { color: var(--danger); }
-
-/* ── CHAT BUBBLE AUTH BUTTON ── */
-.cb-auth-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
-  border: 1px solid rgba(74,222,128,0.25);
-  background: var(--accent-dim); color: var(--accent);
-  font-family: var(--mono); font-size: 13px; cursor: pointer;
-  transition: all 0.15s; display: flex; align-items: center;
-  justify-content: center; gap: 9px; margin-bottom: 18px;
-}
-.cb-auth-btn:hover { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.4); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,222,128,0.1); }
-.cb-auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-.cb-auth-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-
-.auth-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.auth-divider-line { flex: 1; height: 1px; background: var(--border); }
-.auth-divider-text { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap; }
-
-/* CB auth pending state */
-.cb-pending {
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
-  display: none; align-items: center; gap: 12px;
-}
-.cb-pending.visible { display: flex; }
-.cb-pending-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: cbPulse 1.2s ease-in-out infinite; }
-@keyframes cbPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-.cb-pending-text { font-size: 12px; color: var(--text-muted); flex: 1; }
-.cb-pending-cancel { font-size: 11px; color: var(--text-dim); background: none; border: none; cursor: pointer; font-family: var(--mono); padding: 0; transition: color 0.15s; }
-.cb-pending-cancel:hover { color: var(--danger); }
+/* PFP edit */
+.pfp-edit-area{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;}
+.pfp-preview{width:56px;height:56px;border-radius:13px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);display:grid;place-items:center;font-family:var(--serif);font-size:24px;color:var(--accent);text-transform:uppercase;flex-shrink:0;overflow:hidden;}
+.pfp-preview img{width:100%;height:100%;object-fit:cover;}
+.pfp-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.pfp-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.pfp-btn:hover{color:var(--text);border-color:var(--border-strong);}
+.pfp-btn.clear:hover{color:var(--danger);}
 </style>
 </head>
 <body>
 
-<!-- ══ AUTH PAGE ══ -->
+<!-- AUTH PAGE -->
 <div id="auth-page" class="page">
   <div class="auth-grid-bg"></div>
   <div class="auth-glow"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-logo">
-        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-      </div>
+      <div class="auth-logo"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
       <span class="auth-brand-name">Bubble</span>
     </div>
-
     <div class="auth-error" id="auth-error"></div>
-
     <!-- LOGIN -->
     <div id="login-form">
       <div class="auth-title">Welcome back.</div>
       <div class="auth-sub">Sign into Bubble</div>
-
       <button class="cb-auth-btn" id="cb-login-btn" onclick="openChatBubbleAuth()">
         <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Sign in with Chat Bubble
@@ -660,15 +332,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <div class="cb-pending-text">Waiting for Chat Bubble authorization…</div>
         <button class="cb-pending-cancel" onclick="cancelChatBubbleAuth()">Cancel</button>
       </div>
-
       <div class="auth-divider"><div class="auth-divider-line"></div><div class="auth-divider-text">or sign in with email</div><div class="auth-divider-line"></div></div>
-
       <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="login-email" type="email" placeholder="you@email.com" autocomplete="email"></div>
       <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign In</button>
       <div class="auth-switch">No account? <a onclick="showSignup()">Sign up</a></div>
     </div>
-
     <!-- SIGNUP -->
     <div id="signup-form" style="display:none">
       <div class="auth-title">Join Bubble.</div>
@@ -677,17 +346,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="form-field">
         <label class="form-label">Password</label>
         <input class="form-input" id="signup-password" type="password" placeholder="••••••••" autocomplete="new-password" oninput="checkPwRules(this.value)">
-        <div class="pw-rules">
-          <span class="pw-rule" id="rule-upper">A upper</span>
-          <span class="pw-rule" id="rule-lower">a lower</span>
-          <span class="pw-rule" id="rule-num">0 number</span>
-          <span class="pw-rule" id="rule-special">* special</span>
-        </div>
+        <div class="pw-rules"><span class="pw-rule" id="rule-upper">A upper</span><span class="pw-rule" id="rule-lower">a lower</span><span class="pw-rule" id="rule-num">0 number</span><span class="pw-rule" id="rule-special">* special</span></div>
       </div>
       <button class="auth-btn" id="signup-btn" onclick="doSignup()">Create Account</button>
       <div class="auth-switch">Have an account? <a onclick="showLogin()">Sign in</a></div>
     </div>
-
     <!-- ONBOARDING -->
     <div id="onboard-form" style="display:none">
       <div class="auth-title">One last thing.</div>
@@ -706,20 +369,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
-<!-- ══ SQL SETUP (shown if tables missing) ══ -->
+<!-- SQL SETUP PAGE -->
 <div id="sql-page" class="page" style="background:var(--bg);padding:24px">
   <div class="sql-card">
     <h3>⚠ Database Setup Required</h3>
-    <p style="color:var(--text-muted);margin-bottom:4px">Run this SQL in your <a href="https://supabase.com/dashboard" target="_blank" style="color:var(--accent)">Supabase SQL Editor</a>, then refresh this page.</p>
+    <p style="color:var(--text-muted);margin-bottom:4px">Run this SQL in your <a href="https://supabase.com/dashboard" target="_blank" style="color:var(--accent)">Supabase SQL Editor</a>, then refresh.</p>
     <pre class="sql-code" id="sql-display"></pre>
     <button class="sql-copy-btn" onclick="copySql()">Copy SQL</button>
   </div>
 </div>
 
-<!-- ══ APP PAGE ══ -->
+<!-- APP PAGE -->
 <div id="app-page" class="page">
   <div class="app-layout">
-
     <!-- LEFT SIDEBAR -->
     <aside class="left-sidebar">
       <div class="nav-brand">
@@ -728,21 +390,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <nav class="nav-items">
         <button class="nav-item active" id="nav-home" onclick="showView('feed')">
-          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Home
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
         </button>
         <button class="nav-item" id="nav-explore" onclick="showView('explore')">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Explore
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Explore
         </button>
         <button class="nav-item" id="nav-profile" onclick="showView('profile-self')">
-          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Profile
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile
         </button>
       </nav>
       <button class="nav-post-btn" onclick="focusCompose()">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Post
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Post
       </button>
       <div class="nav-user" id="nav-user-btn" onclick="toggleNavDropdown()">
         <div class="nav-avatar" id="nav-avatar">?</div>
@@ -752,27 +410,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         </div>
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:var(--text-dim);fill:none;stroke-width:1.5;stroke-linecap:round;flex-shrink:0"><polyline points="18 15 12 9 6 15"/></svg>
         <div class="nav-user-dropdown" id="nav-dropdown">
-          <button class="nav-dd-item" onclick="showView('profile-self');closeNavDropdown()">
-            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            My Profile
-          </button>
-          <button class="nav-dd-item" onclick="openEditProfile()">
-            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit Profile
-          </button>
-          <button class="nav-dd-item danger" onclick="doLogout()">
-            <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            Sign Out
-          </button>
+          <button class="nav-dd-item" onclick="showView('profile-self');closeNavDropdown()"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>My Profile</button>
+          <button class="nav-dd-item" onclick="openEditProfile()"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Profile</button>
+          <button class="nav-dd-item danger" onclick="doLogout()"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button>
         </div>
       </div>
     </aside>
-
-    <!-- MAIN AREA -->
-    <main class="main-feed" id="main-area">
-      <!-- injected by JS -->
-    </main>
-
+    <!-- MAIN -->
+    <main class="main-feed" id="main-area"></main>
     <!-- RIGHT SIDEBAR -->
     <aside class="right-sidebar">
       <div class="sidebar-search">
@@ -781,48 +426,44 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <div class="sidebar-card" id="who-to-follow-card">
         <div class="sidebar-card-title">Who to follow</div>
-        <div id="who-to-follow">
-          <div style="color:var(--text-dim);font-size:11px">Loading…</div>
-        </div>
+        <div id="who-to-follow"><div style="color:var(--text-dim);font-size:11px">Loading…</div></div>
       </div>
       <div class="sidebar-card">
         <div class="sidebar-card-title">Trending</div>
-        <div id="trending-list">
-          <div style="color:var(--text-dim);font-size:11px">Loading…</div>
-        </div>
+        <div id="trending-list"><div style="color:var(--text-dim);font-size:11px">Loading…</div></div>
       </div>
     </aside>
   </div>
-
   <!-- MOBILE NAV -->
   <nav class="mobile-nav">
-    <button class="mobile-nav-item active" id="mnav-home" onclick="showView('feed')">
-      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Home</span>
-    </button>
-    <button class="mobile-nav-item" id="mnav-explore" onclick="showView('explore')">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <span>Explore</span>
-    </button>
-    <button class="mobile-nav-item" id="mnav-compose" onclick="focusCompose()">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span>Post</span>
-    </button>
-    <button class="mobile-nav-item" id="mnav-profile" onclick="showView('profile-self')">
-      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Profile</span>
-    </button>
+    <button class="mobile-nav-item active" id="mnav-home" onclick="showView('feed')"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="mobile-nav-item" id="mnav-explore" onclick="showView('explore')"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Explore</span></button>
+    <button class="mobile-nav-item" id="mnav-compose" onclick="focusCompose()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Post</span></button>
+    <button class="mobile-nav-item" id="mnav-profile" onclick="showView('profile-self')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></button>
   </nav>
 </div>
 
 <!-- EDIT PROFILE MODAL -->
 <div class="modal-backdrop" id="edit-profile-modal">
   <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Profile</div>
-      <button class="modal-close" onclick="closeEditProfile()">×</button>
-    </div>
+    <div class="modal-header"><div class="modal-title">Edit Profile</div><button class="modal-close" onclick="closeEditProfile()">×</button></div>
     <div class="modal-body">
+      <div class="pfp-edit-area">
+        <div class="pfp-preview" id="edit-avatar-preview"></div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Profile Picture</div>
+          <div class="pfp-btns">
+            <button class="pfp-btn" onclick="document.getElementById('pfp-file-input').click()">Upload photo</button>
+            <button class="pfp-btn" onclick="toggleUrlField()">Use URL</button>
+            <button class="pfp-btn clear" onclick="clearPfp()">Use initial</button>
+          </div>
+          <input type="file" id="pfp-file-input" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" style="display:none" onchange="handlePfpFile(event)">
+        </div>
+      </div>
+      <div class="form-field" id="pfp-url-field" style="display:none">
+        <label class="form-label">Image URL</label>
+        <input class="form-input" id="pfp-url-input" type="url" placeholder="https://…" oninput="previewUrlPfp(this.value)">
+      </div>
       <div class="form-field"><label class="form-label">Display Name</label><input class="form-input" id="edit-display" type="text" maxlength="40"></div>
       <div class="form-field"><label class="form-label">Bio</label><textarea class="form-input" id="edit-bio" rows="3" style="resize:none" maxlength="200"></textarea></div>
       <div class="modal-error" id="edit-error"></div>
@@ -831,130 +472,71 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="" style="display:none">
+  <video id="lightbox-vid" controls style="display:none"></video>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const SUPABASE_URL  = 'https://pldimursqhpazqcgfrwu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsZGltdXJzcWhwYXpxY2dmcnd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NjU5MzMsImV4cCI6MjA4ODE0MTkzM30.3PbCzSx_vmY168kZoYVGK3i8OdUEn2iXl1qms002iLo';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const CHATBUBBLE_BRIDGE = 'https://partials-gh.github.io/chatbubble/bridge.html?source=bubble';
+const CB_EMAIL_SUFFIX = '@cb.bubbleapp.net';
+const BUBBLE_ORIGIN = 'https://partials-gh.github.io';
+const ADMIN_USERNAME = 'Partials';
+const ALLOWED_IMAGE_TYPES = ['image/jpeg','image/jpg','image/png','image/gif','image/webp'];
+const ALLOWED_VIDEO_TYPES = ['video/mp4','video/webm','video/ogg','video/quicktime'];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-const SQL_SETUP = `-- Run this in Supabase SQL Editor
+const SQL_SETUP = `-- Run in Supabase SQL Editor (Bubble project)
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  username text unique not null,
-  display_name text not null,
-  bio text default '',
-  avatar_url text default '',
-  followers_count int default 0,
-  following_count int default 0,
-  posts_count int default 0,
-  created_at timestamptz default now()
-);
+-- Add media_urls column if not exists
+alter table public.posts add column if not exists media_urls text[] default '{}';
+alter table public.posts add column if not exists tags text[] default '{}';
+alter table public.posts add column if not exists mentions text[] default '{}';
+-- Relax content length for media posts
+alter table public.posts drop constraint if exists posts_content_check;
+alter table public.posts add constraint posts_content_check check (char_length(content) <= 500);
 
-create table if not exists public.posts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  content text not null check (char_length(content) <= 280),
-  likes_count int default 0,
-  comments_count int default 0,
-  created_at timestamptz default now()
-);
+-- Storage bucket for post media
+insert into storage.buckets (id, name, public) values ('post-media', 'post-media', true) on conflict do nothing;
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict do nothing;
 
-create table if not exists public.likes (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  post_id uuid references public.posts(id) on delete cascade not null,
-  created_at timestamptz default now(),
-  unique(user_id, post_id)
-);
+-- Storage policies
+drop policy if exists "post_media_public_read" on storage.objects;
+drop policy if exists "post_media_auth_upload" on storage.objects;
+drop policy if exists "avatars_public_read" on storage.objects;
+drop policy if exists "avatars_auth_upload" on storage.objects;
 
-create table if not exists public.comments (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  post_id uuid references public.posts(id) on delete cascade not null,
-  content text not null check (char_length(content) <= 500),
-  created_at timestamptz default now()
-);
+create policy "post_media_public_read" on storage.objects for select using (bucket_id = 'post-media');
+create policy "post_media_auth_upload" on storage.objects for insert with check (bucket_id = 'post-media' and auth.role() = 'authenticated');
+create policy "avatars_public_read" on storage.objects for select using (bucket_id = 'avatars');
+create policy "avatars_auth_upload" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "avatars_auth_update" on storage.objects for update using (bucket_id = 'avatars' and auth.role() = 'authenticated');`;
 
-create table if not exists public.follows (
-  id uuid primary key default gen_random_uuid(),
-  follower_id uuid references public.profiles(id) on delete cascade not null,
-  following_id uuid references public.profiles(id) on delete cascade not null,
-  created_at timestamptz default now(),
-  unique(follower_id, following_id)
-);
-
--- Enable RLS
-alter table public.profiles enable row level security;
-alter table public.posts enable row level security;
-alter table public.likes enable row level security;
-alter table public.comments enable row level security;
-alter table public.follows enable row level security;
-
--- Profiles: public read, owner write
-create policy if not exists "profiles_public_read" on public.profiles for select using (true);
-create policy if not exists "profiles_owner_insert" on public.profiles for insert with check (auth.uid() = id);
-create policy if not exists "profiles_owner_update" on public.profiles for update using (auth.uid() = id);
-
--- Posts: public read, auth insert/delete own
-create policy if not exists "posts_public_read" on public.posts for select using (true);
-create policy if not exists "posts_auth_insert" on public.posts for insert with check (auth.uid() = user_id);
-create policy if not exists "posts_owner_delete" on public.posts for delete using (auth.uid() = user_id);
-
--- Likes: public read, auth insert/delete own
-create policy if not exists "likes_public_read" on public.likes for select using (true);
-create policy if not exists "likes_auth_insert" on public.likes for insert with check (auth.uid() = user_id);
-create policy if not exists "likes_owner_delete" on public.likes for delete using (auth.uid() = user_id);
-
--- Comments: public read, auth insert/delete own
-create policy if not exists "comments_public_read" on public.comments for select using (true);
-create policy if not exists "comments_auth_insert" on public.comments for insert with check (auth.uid() = user_id);
-create policy if not exists "comments_owner_delete" on public.comments for delete using (auth.uid() = user_id);
-
--- Follows: public read, auth insert/delete own
-create policy if not exists "follows_public_read" on public.follows for select using (true);
-create policy if not exists "follows_auth_insert" on public.follows for insert with check (auth.uid() = follower_id);
-create policy if not exists "follows_owner_delete" on public.follows for delete using (auth.uid() = follower_id);`;
-
-/* ══════════════════════════════════════
-   STATE
-══════════════════════════════════════ */
+/* ── STATE ── */
 let currentUser = null, currentProfile = null;
 let myLikes = new Set(), myFollowing = new Set();
 let currentView = 'feed';
-let usernameCheckTimer = null;
-let feedChannel = null;
+let usernameCheckTimer = null, feedChannel = null;
+let pendingMediaFiles = []; // {file, previewUrl, type}
+let pendingAvatarFile = null, pendingAvatarUrl = null;
 
-/* ══════════════════════════════════════
-   INIT
-══════════════════════════════════════ */
+/* ── INIT ── */
 async function init() {
   document.getElementById('sql-display').textContent = SQL_SETUP;
-
-  // Check if tables exist
-  const { error: tableCheck } = await sb.from('profiles').select('id').limit(1);
-  if (tableCheck && (tableCheck.code === '42P01' || tableCheck.message?.includes('does not exist'))) {
-    showPage('sql-page'); return;
-  }
-
+  const { error: tc } = await sb.from('profiles').select('id').limit(1);
+  if (tc && (tc.code === '42P01' || tc.message?.includes('does not exist'))) { showPage('sql-page'); return; }
   const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await loadCurrentProfile();
-  } else {
-    showPage('auth-page');
-  }
-
+  if (session) { currentUser = session.user; await loadCurrentProfile(); }
+  else showPage('auth-page');
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      await loadCurrentProfile();
-    } else if (event === 'SIGNED_OUT') {
-      currentUser = null; currentProfile = null;
-      myLikes.clear(); myFollowing.clear();
-      showPage('auth-page');
-    }
+    if (event === 'SIGNED_IN' && session) { currentUser = session.user; await loadCurrentProfile(); }
+    else if (event === 'SIGNED_OUT') { currentUser = null; currentProfile = null; myLikes.clear(); myFollowing.clear(); showPage('auth-page'); }
   });
 }
 
@@ -969,14 +551,25 @@ async function loadCurrentProfile() {
   showView('feed');
   loadWhoToFollow();
   loadTrending();
+  // Admin redirect
+  if (currentProfile.username === ADMIN_USERNAME) {
+    // Add admin link to nav dropdown
+    const dd = document.getElementById('nav-dropdown');
+    if (dd && !document.getElementById('admin-nav-link')) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-dd-item';
+      btn.id = 'admin-nav-link';
+      btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin Dashboard`;
+      btn.onclick = () => { window.open('admin.html','_blank'); closeNavDropdown(); };
+      dd.insertBefore(btn, dd.firstChild);
+    }
+  }
 }
 
 function updateNavUser() {
   if (!currentProfile) return;
   const av = document.getElementById('nav-avatar');
-  av.innerHTML = currentProfile.avatar_url
-    ? `<img src="${esc(currentProfile.avatar_url)}" alt="">`
-    : esc((currentProfile.display_name || currentProfile.username || '?')[0].toUpperCase());
+  av.innerHTML = currentProfile.avatar_url ? `<img src="${esc(currentProfile.avatar_url)}" alt="">` : esc((currentProfile.display_name||currentProfile.username||'?')[0].toUpperCase());
   document.getElementById('nav-display-name').textContent = currentProfile.display_name || currentProfile.username;
   document.getElementById('nav-handle').textContent = '@' + currentProfile.username;
 }
@@ -984,48 +577,65 @@ function updateNavUser() {
 async function loadMyLikes() {
   if (!currentUser) return;
   const { data } = await sb.from('likes').select('post_id').eq('user_id', currentUser.id);
-  myLikes = new Set((data || []).map(r => r.post_id));
+  myLikes = new Set((data||[]).map(r => r.post_id));
 }
 async function loadMyFollowing() {
   if (!currentUser) return;
   const { data } = await sb.from('follows').select('following_id').eq('follower_id', currentUser.id);
-  myFollowing = new Set((data || []).map(r => r.following_id));
+  myFollowing = new Set((data||[]).map(r => r.following_id));
 }
 
-/* ══════════════════════════════════════
-   PAGE ROUTING
-══════════════════════════════════════ */
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-function showView(view, data = null) {
+/* ── PAGES ── */
+function showPage(id) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function showView(view, data=null) {
   currentView = view;
-  // Update nav highlights
-  ['home','explore','profile'].forEach(k => {
-    const el = document.getElementById(`nav-${k}`);
-    const mel = document.getElementById(`mnav-${k}`);
-    if (el) el.classList.remove('active');
-    if (mel) mel.classList.remove('active');
-  });
-  if (view === 'feed') { document.getElementById('nav-home')?.classList.add('active'); document.getElementById('mnav-home')?.classList.add('active'); }
-  else if (view === 'explore') { document.getElementById('nav-explore')?.classList.add('active'); document.getElementById('mnav-explore')?.classList.add('active'); }
-  else if (view === 'profile-self' || view === 'profile') { document.getElementById('nav-profile')?.classList.add('active'); document.getElementById('mnav-profile')?.classList.add('active'); }
-
+  ['home','explore','profile'].forEach(k => { document.getElementById(`nav-${k}`)?.classList.remove('active'); document.getElementById(`mnav-${k}`)?.classList.remove('active'); });
+  if (view==='feed') { document.getElementById('nav-home')?.classList.add('active'); document.getElementById('mnav-home')?.classList.add('active'); }
+  else if (view==='explore') { document.getElementById('nav-explore')?.classList.add('active'); document.getElementById('mnav-explore')?.classList.add('active'); }
+  else if (view==='profile-self'||view==='profile') { document.getElementById('nav-profile')?.classList.add('active'); document.getElementById('mnav-profile')?.classList.add('active'); }
   const main = document.getElementById('main-area');
   main.innerHTML = '<div class="feed-loader">Loading…</div>';
-
-  if (view === 'feed') renderFeed(main);
-  else if (view === 'explore') renderExplore(main);
-  else if (view === 'profile-self') renderProfile(main, currentProfile);
-  else if (view === 'profile') renderProfile(main, data);
-  else if (view === 'post') renderPostDetail(main, data);
+  if (view==='feed') renderFeed(main);
+  else if (view==='explore') renderExplore(main);
+  else if (view==='profile-self') renderProfile(main, currentProfile);
+  else if (view==='profile') renderProfile(main, data);
+  else if (view==='post') renderPostDetail(main, data);
+  else if (view==='tag') renderTagFeed(main, data);
 }
 
-/* ══════════════════════════════════════
-   FEED
-══════════════════════════════════════ */
+/* ── MARKDOWN + TAGS + MENTIONS ── */
+function renderContent(raw) {
+  if (!raw) return '';
+  let t = esc(raw);
+  // bold italic
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // strikethrough, underline
+  t = t.replace(/~~(.+?)~~/g, '<span class="md-strike">$1</span>');
+  t = t.replace(/__(.+?)__/g, '<span class="md-under">$1</span>');
+  // inline code
+  t = t.replace(/`(.+?)`/g, '<code>$1</code>');
+  // hashtags — #bubblefyp gets boosted in algorithm
+  t = t.replace(/#(\w+)/g, '<span class="tag" onclick="event.stopPropagation();showView(\'tag\',\'$1\')">#$1</span>');
+  // mentions
+  t = t.replace(/@(\w+)/g, '<span class="mention" onclick="event.stopPropagation();openProfileByUsername(\'$1\')">@$1</span>');
+  // newlines
+  t = t.replace(/\n/g, '<br>');
+  return t;
+}
+
+function extractTags(content) {
+  return (content.match(/#(\w+)/g)||[]).map(t => t.slice(1).toLowerCase());
+}
+function extractMentions(content) {
+  return (content.match(/@(\w+)/g)||[]).map(m => m.slice(1).toLowerCase());
+}
+function hasFypTag(content) {
+  return /#bubblefyp/i.test(content);
+}
+
+/* ── FEED ── */
 async function renderFeed(main) {
   main.innerHTML = `
     <div class="feed-header">
@@ -1036,20 +646,25 @@ async function renderFeed(main) {
       </div>
     </div>
     <div class="compose-box" id="compose-box">
-      <div class="compose-avatar" id="compose-avatar">${currentProfile?.avatar_url ? `<img src="${esc(currentProfile.avatar_url)}" alt="">` : esc((currentProfile?.display_name || currentProfile?.username || '?')[0].toUpperCase())}</div>
+      <div class="compose-avatar" id="compose-avatar">${currentProfile?.avatar_url ? `<img src="${esc(currentProfile.avatar_url)}" alt="">` : esc((currentProfile?.display_name||currentProfile?.username||'?')[0].toUpperCase())}</div>
       <div class="compose-right">
-        <textarea class="compose-textarea" id="compose-input" placeholder="What's on your mind?" rows="2" maxlength="280" oninput="updateCharCount(this)"></textarea>
+        <textarea class="compose-textarea" id="compose-input" placeholder="What's on your mind? Use #bubblefyp to get on For You. @mention people." rows="2" maxlength="500" oninput="updateCharCount(this)"></textarea>
+        <div class="compose-media-preview" id="compose-media-preview"></div>
         <div class="compose-footer">
-          <span class="compose-char" id="char-count">0 / 280</span>
-          <button class="compose-send" id="compose-send-btn" onclick="submitPost()" disabled>Bubble it</button>
+          <div class="compose-tools">
+            <button class="compose-tool" onclick="document.getElementById('compose-media-input').click()" title="Add photo/video">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+            <input type="file" id="compose-media-input" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,video/mp4,video/webm,video/ogg,video/quicktime" multiple style="display:none" onchange="handleMediaSelect(event)">
+          </div>
+          <div class="compose-right-footer">
+            <span class="compose-char" id="char-count">0 / 500</span>
+            <button class="compose-send" id="compose-send-btn" onclick="submitPost()">Bubble it</button>
+          </div>
         </div>
       </div>
     </div>
-    <div id="feed-posts"></div>
-  `;
-  document.getElementById('compose-input').addEventListener('input', () => {
-    document.getElementById('compose-send-btn').disabled = document.getElementById('compose-input').value.trim().length === 0;
-  });
+    <div id="feed-posts"></div>`;
   await loadFeedPosts('for-you');
   subscribeToFeed();
 }
@@ -1057,70 +672,92 @@ async function renderFeed(main) {
 let feedTab = 'for-you';
 async function switchFeedTab(tab) {
   feedTab = tab;
-  document.getElementById('tab-for-you').classList.toggle('active', tab === 'for-you');
-  document.getElementById('tab-following').classList.toggle('active', tab === 'following');
+  document.getElementById('tab-for-you').classList.toggle('active', tab==='for-you');
+  document.getElementById('tab-following').classList.toggle('active', tab==='following');
   document.getElementById('feed-posts').innerHTML = '<div class="feed-loader">Loading…</div>';
   await loadFeedPosts(tab);
 }
 
 async function loadFeedPosts(tab) {
-  let query = sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').order('created_at', { ascending: false }).limit(40);
-  if (tab === 'following' && myFollowing.size > 0) {
-    query = query.in('user_id', [...myFollowing]);
-  } else if (tab === 'following') {
-    document.getElementById('feed-posts').innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>Follow people to see their posts here.</div>`;
-    return;
+  const container = document.getElementById('feed-posts');
+  if (!container) return;
+  let posts, error;
+
+  if (tab === 'following') {
+    if (!myFollowing.size) { container.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>Follow people to see their posts here.</div>`; return; }
+    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').in('user_id',[...myFollowing]).order('created_at',{ascending:false}).limit(40));
+  } else {
+    // For You: #bubblefyp posts first, then recent, weighted by likes
+    ({ data: posts, error } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(60));
+    if (posts) {
+      // Sort: fyp tagged first, then by score (likes * 2 + recency)
+      posts.sort((a, b) => {
+        const aFyp = hasFypTag(a.content) ? 1 : 0;
+        const bFyp = hasFypTag(b.content) ? 1 : 0;
+        if (aFyp !== bFyp) return bFyp - aFyp;
+        const aScore = (a.likes_count||0)*2 + (a.comments_count||0);
+        const bScore = (b.likes_count||0)*2 + (b.comments_count||0);
+        return bScore - aScore;
+      });
+      posts = posts.slice(0, 40);
+    }
   }
-  const { data: posts, error } = await query;
-  if (error) { document.getElementById('feed-posts').innerHTML = `<div class="feed-empty" style="color:var(--danger)">${esc(error.message)}</div>`; return; }
-  if (!posts?.length) { document.getElementById('feed-posts').innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>Nothing here yet.<br>Be the first to post.</div>`; return; }
-  document.getElementById('feed-posts').innerHTML = posts.map(p => renderPostHTML(p)).join('');
+
+  if (error) { container.innerHTML = `<div class="feed-empty" style="color:var(--danger)">${esc(error.message)}</div>`; return; }
+  if (!posts?.length) { container.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>Nothing here yet.<br>Be the first to post.</div>`; return; }
+  container.innerHTML = posts.map(p => renderPostHTML(p)).join('');
 }
 
 function subscribeToFeed() {
   if (feedChannel) feedChannel.unsubscribe();
   feedChannel = sb.channel('public-feed')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async ({ new: row }) => {
-      const { data: post } = await sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').eq('id', row.id).single();
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, async ({new:row}) => {
+      const {data:post} = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('id',row.id).single();
       if (!post) return;
       const container = document.getElementById('feed-posts');
       if (!container) return;
       const tmp = document.createElement('div');
       tmp.innerHTML = renderPostHTML(post);
       const el = tmp.firstElementChild;
-      const empty = container.querySelector('.feed-empty');
-      if (empty) { container.innerHTML = ''; }
+      container.querySelector('.feed-empty')?.remove();
       container.prepend(el);
-    })
-    .subscribe();
+    }).subscribe();
 }
 
 function renderPostHTML(post) {
-  const profile = post.profiles;
-  const initial = ((profile?.display_name || profile?.username || '?')[0]).toUpperCase();
-  const avatarInner = profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(initial);
+  const p = post.profiles;
+  const initial = ((p?.display_name||p?.username||'?')[0]).toUpperCase();
+  const avInner = p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(initial);
   const liked = myLikes.has(post.id);
-  const timeStr = relativeTime(post.created_at);
   const isOwn = post.user_id === currentUser?.id;
+  const mediaUrls = post.media_urls || [];
+  const mediaHtml = mediaUrls.length ? `<div class="post-media">${mediaUrls.map(url => {
+    const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes('video');
+    return isVideo
+      ? `<div class="post-media-item"><video src="${esc(url)}" controls preload="metadata"></video></div>`
+      : `<div class="post-media-item"><img src="${esc(url)}" alt="" loading="lazy" onclick="event.stopPropagation();openLightbox('${esc(url)}','img')"></div>`;
+  }).join('')}</div>` : '';
+
   return `<div class="post" onclick="openPost('${post.id}')">
-    <div class="post-avatar" onclick="event.stopPropagation();openProfileById('${profile?.id}')">${avatarInner}</div>
+    <div class="post-avatar" onclick="event.stopPropagation();openProfileById('${p?.id}')">${avInner}</div>
     <div class="post-body">
       <div class="post-header">
-        <span class="post-name" onclick="event.stopPropagation();openProfileById('${profile?.id}')">${esc(profile?.display_name || profile?.username || '?')}</span>
-        <span class="post-handle">@${esc(profile?.username || '?')}</span>
+        <span class="post-name" onclick="event.stopPropagation();openProfileById('${p?.id}')">${esc(p?.display_name||p?.username||'?')}</span>
+        <span class="post-handle">@${esc(p?.username||'?')}</span>
         <span class="post-dot">·</span>
-        <span class="post-time">${timeStr}</span>
+        <span class="post-time">${relativeTime(post.created_at)}</span>
         ${isOwn ? `<button onclick="event.stopPropagation();deletePost('${post.id}')" style="margin-left:auto;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:11px;padding:0 4px;transition:color 0.15s" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-dim)'">✕</button>` : ''}
       </div>
-      <div class="post-content">${esc(post.content)}</div>
+      ${post.content ? `<div class="post-content">${renderContent(post.content)}</div>` : ''}
+      ${mediaHtml}
       <div class="post-actions">
-        <button class="post-action like ${liked ? 'liked' : ''}" onclick="event.stopPropagation();toggleLike('${post.id}',this)" data-likes="${post.likes_count || 0}">
+        <button class="post-action like ${liked?'liked':''}" onclick="event.stopPropagation();toggleLike('${post.id}',this)" data-likes="${post.likes_count||0}">
           <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-          <span>${post.likes_count || 0}</span>
+          <span>${post.likes_count||0}</span>
         </button>
         <button class="post-action comment" onclick="event.stopPropagation();openPost('${post.id}')">
           <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          <span>${post.comments_count || 0}</span>
+          <span>${post.comments_count||0}</span>
         </button>
       </div>
     </div>
@@ -1131,23 +768,99 @@ function updateCharCount(el) {
   const len = el.value.length;
   const counter = document.getElementById('char-count');
   if (!counter) return;
-  counter.textContent = `${len} / 280`;
-  counter.className = 'compose-char' + (len > 260 ? ' warn' : '') + (len > 275 ? ' danger' : '');
+  counter.textContent = `${len} / 500`;
+  counter.className = 'compose-char' + (len>450?' warn':'') + (len>490?' danger':'');
 }
 
+/* ── MEDIA UPLOAD ── */
+function handleMediaSelect(e) {
+  Array.from(e.target.files).forEach(file => {
+    if (file.size > MAX_FILE_SIZE) { showToast(`${file.name} is over 50MB`, 'error'); return; }
+    const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
+    const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type);
+    if (!isImage && !isVideo) { showToast(`${file.name}: unsupported format`, 'error'); return; }
+    const previewUrl = URL.createObjectURL(file);
+    pendingMediaFiles.push({ file, previewUrl, type: isVideo ? 'video' : 'image' });
+  });
+  e.target.value = '';
+  renderMediaPreview();
+}
+
+function renderMediaPreview() {
+  const bar = document.getElementById('compose-media-preview');
+  if (!bar) return;
+  if (!pendingMediaFiles.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = pendingMediaFiles.map((m,i) =>
+    `<div class="compose-media-thumb">
+      ${m.type==='video' ? `<video src="${m.previewUrl}" muted></video>` : `<img src="${m.previewUrl}" alt="">`}
+      <button class="compose-media-remove" onclick="removeMedia(${i})">×</button>
+    </div>`
+  ).join('');
+}
+function removeMedia(i) { pendingMediaFiles.splice(i,1); renderMediaPreview(); }
+
+async function uploadMediaFile(file) {
+  const ext = file.name.split('.').pop();
+  const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await sb.storage.from('post-media').upload(path, file, { upsert: false });
+  if (error) throw error;
+  const { data } = sb.storage.from('post-media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/* ── SUBMIT POST ── */
 async function submitPost() {
   const input = document.getElementById('compose-input');
+  if (!input) return;
   const content = input.value.trim();
-  if (!content || !currentUser) return;
+  const hasMedia = pendingMediaFiles.length > 0;
+  if (!content && !hasMedia) { showToast('Write something or attach media first.', 'error'); return; }
+  if (!currentUser) return;
+
   const btn = document.getElementById('compose-send-btn');
-  btn.disabled = true; btn.textContent = 'Posting…';
-  const { error } = await sb.from('posts').insert({ user_id: currentUser.id, content });
-  if (error) { showToast(error.message, 'error'); btn.disabled = false; btn.textContent = 'Bubble it'; return; }
-  // bump post count
-  await sb.from('profiles').update({ posts_count: (currentProfile.posts_count || 0) + 1 }).eq('id', currentUser.id);
-  currentProfile.posts_count = (currentProfile.posts_count || 0) + 1;
+  btn.disabled = true; btn.textContent = hasMedia ? 'Uploading…' : 'Posting…';
+
+  // Upload media files
+  let mediaUrls = [];
+  if (hasMedia) {
+    try {
+      for (const m of pendingMediaFiles) {
+        const url = await uploadMediaFile(m.file);
+        mediaUrls.push(url);
+      }
+    } catch(e) {
+      showToast('Media upload failed: ' + e.message, 'error');
+      btn.disabled = false; btn.textContent = 'Bubble it';
+      return;
+    }
+  }
+
+  const tags = extractTags(content);
+  const mentions = extractMentions(content);
+
+  btn.textContent = 'Posting…';
+  const { error } = await sb.from('posts').insert({
+    user_id: currentUser.id,
+    content: content || '',
+    media_urls: mediaUrls,
+    tags,
+    mentions
+  });
+
+  if (error) {
+    showToast('Post failed: ' + error.message, 'error');
+    btn.disabled = false; btn.textContent = 'Bubble it';
+    return;
+  }
+
+  // Bump post count
+  await sb.from('profiles').update({ posts_count: (currentProfile.posts_count||0)+1 }).eq('id', currentUser.id);
+  currentProfile.posts_count = (currentProfile.posts_count||0)+1;
+
+  // Clear
   input.value = ''; updateCharCount(input);
-  btn.disabled = true; btn.textContent = 'Bubble it';
+  pendingMediaFiles = []; renderMediaPreview();
+  btn.disabled = false; btn.textContent = 'Bubble it';
   showToast('Posted!', 'success');
 }
 
@@ -1160,102 +873,108 @@ async function deletePost(postId) {
   showToast('Deleted.', 'success');
 }
 
-/* ══════════════════════════════════════
-   LIKES
-══════════════════════════════════════ */
+/* ── TAG FEED ── */
+async function renderTagFeed(main, tag) {
+  main.innerHTML = `
+    <div class="feed-header">
+      <button class="back-btn" onclick="showView('feed')" style="padding:0;border:none"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span class="feed-header-title">#${esc(tag)}</span>
+    </div>
+    <div id="tag-posts"><div class="feed-loader">Loading…</div></div>`;
+  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').contains('tags',[tag.toLowerCase()]).order('likes_count',{ascending:false}).limit(40);
+  const el = document.getElementById('tag-posts');
+  if (!el) return;
+  if (!posts?.length) { el.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>No posts with #${esc(tag)} yet.</div>`; return; }
+  el.innerHTML = posts.map(p => renderPostHTML(p)).join('');
+}
+
+/* ── LIKES ── */
 async function toggleLike(postId, btn) {
   if (!currentUser) return;
   const liked = myLikes.has(postId);
   const countSpan = btn.querySelector('span');
-  const current = parseInt(btn.dataset.likes) || 0;
+  const current = parseInt(btn.dataset.likes)||0;
   if (liked) {
-    myLikes.delete(postId);
-    btn.classList.remove('liked');
-    btn.dataset.likes = current - 1;
-    countSpan.textContent = current - 1;
-    await sb.from('likes').delete().eq('user_id', currentUser.id).eq('post_id', postId);
-    await sb.rpc('decrement_likes', { post_id: postId }).catch(() =>
-      sb.from('posts').update({ likes_count: Math.max(0, current - 1) }).eq('id', postId)
-    );
+    myLikes.delete(postId); btn.classList.remove('liked');
+    btn.dataset.likes = current-1; countSpan.textContent = current-1;
+    await sb.from('likes').delete().eq('user_id',currentUser.id).eq('post_id',postId);
+    await sb.from('posts').update({likes_count:Math.max(0,current-1)}).eq('id',postId);
   } else {
-    myLikes.add(postId);
-    btn.classList.add('liked');
-    btn.dataset.likes = current + 1;
-    countSpan.textContent = current + 1;
-    await sb.from('likes').insert({ user_id: currentUser.id, post_id: postId });
-    await sb.from('posts').update({ likes_count: current + 1 }).eq('id', postId);
+    myLikes.add(postId); btn.classList.add('liked');
+    btn.dataset.likes = current+1; countSpan.textContent = current+1;
+    await sb.from('likes').insert({user_id:currentUser.id,post_id:postId});
+    await sb.from('posts').update({likes_count:current+1}).eq('id',postId);
   }
 }
 
-/* ══════════════════════════════════════
-   POST DETAIL / COMMENTS
-══════════════════════════════════════ */
+/* ── POST DETAIL ── */
 async function openPost(postId) {
-  const { data: post } = await sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').eq('id', postId).single();
-  if (!post) return;
-  showView('post', post);
+  const { data: post } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('id',postId).single();
+  if (post) showView('post', post);
 }
 
 async function renderPostDetail(main, post) {
-  const profile = post.profiles;
-  const initial = ((profile?.display_name || profile?.username || '?')[0]).toUpperCase();
-  const avatarInner = profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(initial);
+  const p = post.profiles;
+  const initial = ((p?.display_name||p?.username||'?')[0]).toUpperCase();
+  const avInner = p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(initial);
   const liked = myLikes.has(post.id);
+  const mediaUrls = post.media_urls||[];
+  const mediaHtml = mediaUrls.length ? `<div class="post-media">${mediaUrls.map(url => {
+    const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(url);
+    return isVideo ? `<div class="post-media-item"><video src="${esc(url)}" controls></video></div>` : `<div class="post-media-item"><img src="${esc(url)}" alt="" onclick="openLightbox('${esc(url)}','img')"></div>`;
+  }).join('')}</div>` : '';
   main.innerHTML = `
     <div class="feed-header" style="padding:0">
-      <button class="back-btn" onclick="history.go(-1) || showView('feed')" style="padding:16px 20px;border-bottom:none">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-        Back
-      </button>
+      <button class="back-btn" onclick="showView('feed')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
     </div>
     <div class="post-detail">
       <div style="display:flex;gap:10px;margin-bottom:12px">
-        <div class="post-avatar" onclick="openProfileById('${profile?.id}')" style="cursor:pointer">${avatarInner}</div>
+        <div class="post-avatar" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${avInner}</div>
         <div>
-          <div class="post-name" onclick="openProfileById('${profile?.id}')" style="cursor:pointer">${esc(profile?.display_name || profile?.username || '?')}</div>
-          <div class="post-handle">@${esc(profile?.username || '?')}</div>
+          <div class="post-name" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${esc(p?.display_name||p?.username||'?')}</div>
+          <div class="post-handle">@${esc(p?.username||'?')}</div>
         </div>
       </div>
-      <div class="post-detail-content">${esc(post.content)}</div>
+      ${post.content ? `<div class="post-detail-content">${renderContent(post.content)}</div>` : ''}
+      ${mediaHtml}
       <div class="post-detail-meta">${new Date(post.created_at).toLocaleString()}</div>
       <div class="post-detail-stats">
-        <span class="post-detail-stat"><strong id="detail-likes">${post.likes_count || 0}</strong> Likes</span>
-        <span class="post-detail-stat"><strong id="detail-comments">${post.comments_count || 0}</strong> Comments</span>
+        <span class="post-detail-stat"><strong id="detail-likes">${post.likes_count||0}</strong> Likes</span>
+        <span class="post-detail-stat"><strong id="detail-comments">${post.comments_count||0}</strong> Comments</span>
       </div>
       <div class="post-actions" style="padding-top:8px">
-        <button class="post-action like ${liked ? 'liked' : ''}" onclick="toggleLikeDetail('${post.id}',this)" data-likes="${post.likes_count||0}">
+        <button class="post-action like ${liked?'liked':''}" onclick="toggleLikeDetail('${post.id}',this)" data-likes="${post.likes_count||0}">
           <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
           <span>Like</span>
         </button>
       </div>
     </div>
     <div class="comment-compose">
-      <div class="comment-avatar">${currentProfile?.avatar_url ? `<img src="${esc(currentProfile.avatar_url)}" alt="">` : esc((currentProfile?.display_name||currentProfile?.username||'?')[0].toUpperCase())}</div>
-      <textarea class="comment-textarea" id="comment-input" placeholder="Reply to this post…" rows="1" maxlength="500" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment('${post.id}')}"></textarea>
+      <div class="comment-avatar">${currentProfile?.avatar_url?`<img src="${esc(currentProfile.avatar_url)}" alt="">`:esc((currentProfile?.display_name||currentProfile?.username||'?')[0].toUpperCase())}</div>
+      <textarea class="comment-textarea" id="comment-input" placeholder="Reply…" rows="1" maxlength="500" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment('${post.id}')}"></textarea>
       <button class="comment-send" onclick="submitComment('${post.id}')">Reply</button>
     </div>
-    <div id="comments-list"><div class="feed-loader">Loading replies…</div></div>
-  `;
+    <div id="comments-list"><div class="feed-loader">Loading…</div></div>`;
   await loadComments(post.id);
 }
 
 async function loadComments(postId) {
-  const { data: comments } = await sb.from('comments').select('*, profiles(id, username, display_name, avatar_url)').eq('post_id', postId).order('created_at', { ascending: true });
+  const { data: comments } = await sb.from('comments').select('*, profiles(id,username,display_name,avatar_url)').eq('post_id',postId).order('created_at',{ascending:true});
   const list = document.getElementById('comments-list');
   if (!list) return;
-  if (!comments?.length) { list.innerHTML = `<div class="feed-empty" style="padding:30px 20px">No replies yet. Be first!</div>`; return; }
+  if (!comments?.length) { list.innerHTML = `<div class="feed-empty" style="padding:30px 20px">No replies yet.</div>`; return; }
   list.innerHTML = comments.map(c => {
-    const p = c.profiles;
-    const av = p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(((p?.display_name||p?.username||'?')[0]).toUpperCase());
+    const cp = c.profiles;
+    const av = cp?.avatar_url ? `<img src="${esc(cp.avatar_url)}" alt="">` : esc(((cp?.display_name||cp?.username||'?')[0]).toUpperCase());
     return `<div class="comment">
-      <div class="comment-avatar" onclick="openProfileById('${p?.id}')" style="cursor:pointer">${av}</div>
+      <div class="comment-avatar" onclick="openProfileById('${cp?.id}')" style="cursor:pointer">${av}</div>
       <div class="comment-body">
         <div class="comment-header">
-          <span class="comment-name">${esc(p?.display_name||p?.username||'?')}</span>
-          <span class="comment-handle">@${esc(p?.username||'?')}</span>
+          <span class="comment-name">${esc(cp?.display_name||cp?.username||'?')}</span>
+          <span class="comment-handle">@${esc(cp?.username||'?')}</span>
           <span class="comment-time">${relativeTime(c.created_at)}</span>
         </div>
-        <div class="comment-content">${esc(c.content)}</div>
+        <div class="comment-content">${renderContent(c.content)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1268,10 +987,9 @@ async function submitComment(postId) {
   if (!content) return;
   input.disabled = true;
   const { error } = await sb.from('comments').insert({ user_id: currentUser.id, post_id: postId, content });
-  if (error) { showToast(error.message, 'error'); input.disabled = false; return; }
-  // bump comment count
-  const { data: post } = await sb.from('posts').select('comments_count').eq('id', postId).single();
-  await sb.from('posts').update({ comments_count: (post?.comments_count||0)+1 }).eq('id', postId);
+  if (error) { showToast(error.message, 'error'); input.disabled=false; return; }
+  const { data: post } = await sb.from('posts').select('comments_count').eq('id',postId).single();
+  await sb.from('posts').update({ comments_count: (post?.comments_count||0)+1 }).eq('id',postId);
   const dc = document.getElementById('detail-comments');
   if (dc) dc.textContent = (parseInt(dc.textContent)||0)+1;
   input.value = ''; input.disabled = false;
@@ -1285,59 +1003,51 @@ async function toggleLikeDetail(postId, btn) {
   if (dl) dl.textContent = btn.dataset.likes;
 }
 
-/* ══════════════════════════════════════
-   PROFILE
-══════════════════════════════════════ */
+/* ── PROFILE ── */
 async function openProfileById(userId) {
   if (!userId) return;
-  if (userId === currentUser?.id) { showView('profile-self'); return; }
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).single();
+  if (userId===currentUser?.id) { showView('profile-self'); return; }
+  const { data: profile } = await sb.from('profiles').select('*').eq('id',userId).single();
   if (profile) showView('profile', profile);
+}
+async function openProfileByUsername(username) {
+  const { data: profile } = await sb.from('profiles').select('*').eq('username',username).maybeSingle();
+  if (profile) { if (profile.id===currentUser?.id) showView('profile-self'); else showView('profile', profile); }
+  else showToast('@'+username+' not found', 'error');
 }
 
 async function renderProfile(main, profile) {
   if (!profile) { main.innerHTML = '<div class="feed-empty">Profile not found.</div>'; return; }
-  const isSelf = profile.id === currentUser?.id;
+  const isSelf = profile.id===currentUser?.id;
   const isFollowing = myFollowing.has(profile.id);
-  const initial = ((profile.display_name || profile.username || '?')[0]).toUpperCase();
-  const avatarInner = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(initial);
-
+  const initial = ((profile.display_name||profile.username||'?')[0]).toUpperCase();
+  const avInner = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(initial);
   main.innerHTML = `
-    ${!isSelf ? `<div class="feed-header" style="padding:0"><button class="back-btn" onclick="showView('feed')" style="padding:16px 20px;border-bottom:none"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>` : ''}
+    ${!isSelf?`<div class="feed-header" style="padding:0"><button class="back-btn" onclick="showView('feed')" style="padding:16px 20px;border-bottom:none"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>`:''}
     <div class="profile-header-banner"></div>
     <div class="profile-header-info">
-      <div class="profile-big-avatar">${avatarInner}</div>
+      <div class="profile-big-avatar" ${isSelf?'onclick="openEditProfile()" title="Change picture"':''}>${avInner}</div>
       <div class="profile-actions-row">
         ${isSelf
           ? `<button class="profile-edit-btn" onclick="openEditProfile()">Edit Profile</button>`
-          : `<button class="profile-follow-btn ${isFollowing ? 'following' : 'follow'}" id="profile-follow-btn" onclick="toggleFollowProfile('${profile.id}',this)">${isFollowing ? 'Following' : 'Follow'}</button>`
+          : `<button class="profile-follow-btn ${isFollowing?'following':'follow'}" id="profile-follow-btn" onclick="toggleFollowProfile('${profile.id}',this)">${isFollowing?'Following':'Follow'}</button>`
         }
       </div>
-      <div class="profile-display-name">${esc(profile.display_name || profile.username)}</div>
+      <div class="profile-display-name">${esc(profile.display_name||profile.username)}</div>
       <div class="profile-handle">@${esc(profile.username)}</div>
-      ${profile.bio ? `<div class="profile-bio">${esc(profile.bio)}</div>` : ''}
+      ${profile.bio?`<div class="profile-bio">${esc(profile.bio)}</div>`:''}
       <div class="profile-stats">
-        <div class="profile-stat">
-          <div class="profile-stat-num">${profile.posts_count || 0}</div>
-          <div class="profile-stat-label">Posts</div>
-        </div>
-        <div class="profile-stat">
-          <div class="profile-stat-num">${profile.following_count || 0}</div>
-          <div class="profile-stat-label">Following</div>
-        </div>
-        <div class="profile-stat">
-          <div class="profile-stat-num">${profile.followers_count || 0}</div>
-          <div class="profile-stat-label">Followers</div>
-        </div>
+        <div class="profile-stat"><div class="profile-stat-num">${profile.posts_count||0}</div><div class="profile-stat-label">Posts</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${profile.following_count||0}</div><div class="profile-stat-label">Following</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${profile.followers_count||0}</div><div class="profile-stat-label">Followers</div></div>
       </div>
     </div>
-    <div id="profile-posts"><div class="feed-loader">Loading posts…</div></div>
-  `;
+    <div id="profile-posts"><div class="feed-loader">Loading posts…</div></div>`;
   await loadProfilePosts(profile.id);
 }
 
 async function loadProfilePosts(userId) {
-  const { data: posts } = await sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').eq('user_id',userId).order('created_at',{ascending:false}).limit(50);
   const el = document.getElementById('profile-posts');
   if (!el) return;
   if (!posts?.length) { el.innerHTML = `<div class="feed-empty"><div class="feed-empty-icon">🫧</div>No posts yet.</div>`; return; }
@@ -1348,78 +1058,64 @@ async function toggleFollowProfile(userId, btn) {
   if (!currentUser) return;
   const isFollowing = myFollowing.has(userId);
   if (isFollowing) {
-    myFollowing.delete(userId);
-    btn.className = 'profile-follow-btn follow'; btn.textContent = 'Follow';
-    await sb.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', userId);
-    await sb.from('profiles').update({ followers_count: sb.rpc }).eq('id', userId);
-    // simple decrement
-    const { data: tp } = await sb.from('profiles').select('followers_count').eq('id', userId).single();
-    if (tp) await sb.from('profiles').update({ followers_count: Math.max(0,(tp.followers_count||1)-1) }).eq('id', userId);
-    const { data: mp } = await sb.from('profiles').select('following_count').eq('id', currentUser.id).single();
-    if (mp) { await sb.from('profiles').update({ following_count: Math.max(0,(mp.following_count||1)-1) }).eq('id', currentUser.id); currentProfile.following_count = Math.max(0,(currentProfile.following_count||1)-1); }
+    myFollowing.delete(userId); btn.className='profile-follow-btn follow'; btn.textContent='Follow';
+    await sb.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',userId);
+    const {data:tp} = await sb.from('profiles').select('followers_count').eq('id',userId).single();
+    if(tp) await sb.from('profiles').update({followers_count:Math.max(0,(tp.followers_count||1)-1)}).eq('id',userId);
+    const {data:mp} = await sb.from('profiles').select('following_count').eq('id',currentUser.id).single();
+    if(mp){await sb.from('profiles').update({following_count:Math.max(0,(mp.following_count||1)-1)}).eq('id',currentUser.id);currentProfile.following_count=Math.max(0,(currentProfile.following_count||1)-1);}
     showToast('Unfollowed.');
   } else {
-    myFollowing.add(userId);
-    btn.className = 'profile-follow-btn following'; btn.textContent = 'Following';
-    await sb.from('follows').insert({ follower_id: currentUser.id, following_id: userId });
-    const { data: tp } = await sb.from('profiles').select('followers_count').eq('id', userId).single();
-    if (tp) await sb.from('profiles').update({ followers_count: (tp.followers_count||0)+1 }).eq('id', userId);
-    const { data: mp } = await sb.from('profiles').select('following_count').eq('id', currentUser.id).single();
-    if (mp) { await sb.from('profiles').update({ following_count: (mp.following_count||0)+1 }).eq('id', currentUser.id); currentProfile.following_count = (currentProfile.following_count||0)+1; }
-    showToast('Following!', 'success');
+    myFollowing.add(userId); btn.className='profile-follow-btn following'; btn.textContent='Following';
+    await sb.from('follows').insert({follower_id:currentUser.id,following_id:userId});
+    const {data:tp} = await sb.from('profiles').select('followers_count').eq('id',userId).single();
+    if(tp) await sb.from('profiles').update({followers_count:(tp.followers_count||0)+1}).eq('id',userId);
+    const {data:mp} = await sb.from('profiles').select('following_count').eq('id',currentUser.id).single();
+    if(mp){await sb.from('profiles').update({following_count:(mp.following_count||0)+1}).eq('id',currentUser.id);currentProfile.following_count=(currentProfile.following_count||0)+1;}
+    showToast('Following!','success');
   }
 }
 
-/* ══════════════════════════════════════
-   EXPLORE
-══════════════════════════════════════ */
+/* ── EXPLORE ── */
 async function renderExplore(main) {
   main.innerHTML = `
     <div class="feed-header"><span class="feed-header-title">Explore</span></div>
     <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
-      <div class="sidebar-search" style="margin:0">
-        <i class="fa-solid fa-magnifying-glass sidebar-search-icon"></i>
+      <div style="position:relative">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px"></i>
         <input type="text" placeholder="Search posts and people…" id="explore-search" style="width:100%;padding:10px 14px 10px 36px;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none" oninput="doExploreSearch(this.value)">
       </div>
     </div>
-    <div id="explore-results"><div class="feed-loader">Loading recent posts…</div></div>
-  `;
+    <div id="explore-results"><div class="feed-loader">Loading recent posts…</div></div>`;
   await doExploreSearch('');
 }
 
 let exploreTimer = null;
-function doExploreSearch(val) {
-  clearTimeout(exploreTimer);
-  exploreTimer = setTimeout(() => runExploreSearch(val), 300);
-}
+function doExploreSearch(val) { clearTimeout(exploreTimer); exploreTimer = setTimeout(() => runExploreSearch(val), 300); }
 
 async function runExploreSearch(query) {
   const el = document.getElementById('explore-results');
   if (!el) return;
   el.innerHTML = '<div class="feed-loader">Searching…</div>';
   if (!query.trim()) {
-    const { data: posts } = await sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').order('created_at', { ascending: false }).limit(30);
-    el.innerHTML = (posts || []).map(p => renderPostHTML(p)).join('') || '<div class="feed-empty">Nothing yet.</div>';
+    const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(30);
+    el.innerHTML = (posts||[]).map(p => renderPostHTML(p)).join('') || '<div class="feed-empty">Nothing yet.</div>';
     return;
   }
-  const [{ data: posts }, { data: people }] = await Promise.all([
-    sb.from('posts').select('*, profiles(id, username, display_name, avatar_url)').ilike('content', `%${query}%`).order('created_at', { ascending: false }).limit(20),
-    sb.from('profiles').select('*').or(`username.ilike.%${query}%,display_name.ilike.%${query}%`).limit(10)
+  const [{data:posts},{data:people}] = await Promise.all([
+    sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').ilike('content',`%${query}%`).order('created_at',{ascending:false}).limit(20),
+    sb.from('profiles').select('*').or(`username.ilike.%${query}%,display_name.ilike.%${query}%`).limit(8)
   ]);
   let html = '';
   if (people?.length) {
     html += `<div style="padding:12px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">People</div>`;
     html += people.map(p => {
-      const isFollowing = myFollowing.has(p.id);
-      const isSelf = p.id === currentUser?.id;
-      const av = p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(((p.display_name||p.username||'?')[0]).toUpperCase());
+      const isF = myFollowing.has(p.id), isSelf = p.id===currentUser?.id;
+      const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
       return `<div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
         <div class="who-avatar" onclick="openProfileById('${p.id}')">${av}</div>
-        <div class="who-info" onclick="openProfileById('${p.id}')">
-          <div class="who-name">${esc(p.display_name||p.username)}</div>
-          <div class="who-handle">@${esc(p.username)}</div>
-        </div>
-        ${!isSelf ? `<button class="follow-btn ${isFollowing?'following':'follow'}" onclick="toggleFollowWho('${p.id}',this)">${isFollowing?'Following':'Follow'}</button>` : ''}
+        <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}</div><div class="who-handle">@${esc(p.username)}</div></div>
+        ${!isSelf?`<button class="follow-btn ${isF?'following':'follow'}" onclick="toggleFollowWho('${p.id}',this)">${isF?'Following':'Follow'}</button>`:''}
       </div>`;
     }).join('');
   }
@@ -1430,353 +1126,270 @@ async function runExploreSearch(query) {
   el.innerHTML = html || `<div class="feed-empty">No results for "${esc(query)}"</div>`;
 }
 
-/* ══════════════════════════════════════
-   WHO TO FOLLOW / TRENDING
-══════════════════════════════════════ */
+/* ── WHO TO FOLLOW + TRENDING ── */
 async function loadWhoToFollow() {
-  const { data: people } = await sb.from('profiles').select('*').neq('id', currentUser?.id).order('followers_count', { ascending: false }).limit(5);
+  const { data: people } = await sb.from('profiles').select('*').neq('id',currentUser?.id).order('followers_count',{ascending:false}).limit(6);
   const el = document.getElementById('who-to-follow');
   if (!el) return;
-  if (!people?.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:11px">No users yet.</div>'; return; }
-  const filtered = people.filter(p => !myFollowing.has(p.id)).slice(0, 4);
-  if (!filtered.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:11px">You\'re following everyone!</div>'; return; }
+  const filtered = (people||[]).filter(p => !myFollowing.has(p.id)).slice(0,4);
+  if (!filtered.length) { el.innerHTML='<div style="color:var(--text-dim);font-size:11px">You\'re all caught up!</div>'; return; }
   el.innerHTML = filtered.map(p => {
-    const av = p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(((p.display_name||p.username||'?')[0]).toUpperCase());
+    const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
     return `<div class="who-item">
       <div class="who-avatar" onclick="openProfileById('${p.id}')">${av}</div>
-      <div class="who-info" onclick="openProfileById('${p.id}')">
-        <div class="who-name">${esc(p.display_name||p.username)}</div>
-        <div class="who-handle">@${esc(p.username)}</div>
-      </div>
+      <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}</div><div class="who-handle">@${esc(p.username)}</div></div>
       <button class="follow-btn follow" onclick="toggleFollowWho('${p.id}',this)">Follow</button>
     </div>`;
   }).join('');
 }
 
-async function toggleFollowWho(userId, btn) {
-  const isFollowing = myFollowing.has(userId);
-  if (isFollowing) {
-    myFollowing.delete(userId);
-    btn.className = 'follow-btn follow'; btn.textContent = 'Follow';
-    await sb.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', userId);
-    const { data: tp } = await sb.from('profiles').select('followers_count').eq('id', userId).single();
-    if (tp) await sb.from('profiles').update({ followers_count: Math.max(0,(tp.followers_count||1)-1) }).eq('id', userId);
-    const { data: mp } = await sb.from('profiles').select('following_count').eq('id', currentUser.id).single();
-    if (mp) { await sb.from('profiles').update({ following_count: Math.max(0,(mp.following_count||1)-1) }).eq('id', currentUser.id); currentProfile.following_count = Math.max(0,(currentProfile.following_count||1)-1); }
-  } else {
-    myFollowing.add(userId);
-    btn.className = 'follow-btn following'; btn.textContent = 'Following';
-    await sb.from('follows').insert({ follower_id: currentUser.id, following_id: userId });
-    const { data: tp } = await sb.from('profiles').select('followers_count').eq('id', userId).single();
-    if (tp) await sb.from('profiles').update({ followers_count: (tp.followers_count||0)+1 }).eq('id', userId);
-    const { data: mp } = await sb.from('profiles').select('following_count').eq('id', currentUser.id).single();
-    if (mp) { await sb.from('profiles').update({ following_count: (mp.following_count||0)+1 }).eq('id', currentUser.id); currentProfile.following_count = (currentProfile.following_count||0)+1; }
-    showToast('Following!', 'success');
-  }
-}
-
 async function loadTrending() {
-  // Get posts with most likes from last 7 days
-  const week = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-  const { data: posts } = await sb.from('posts').select('content, likes_count').gte('created_at', week).order('likes_count', { ascending: false }).limit(50);
+  const week = new Date(Date.now()-7*24*60*60*1000).toISOString();
+  const { data: posts } = await sb.from('posts').select('tags,likes_count').gte('created_at',week).order('likes_count',{ascending:false}).limit(100);
   const el = document.getElementById('trending-list');
   if (!el) return;
-  // Extract words/hashtags
-  const wordCount = {};
-  (posts || []).forEach(p => {
-    const words = p.content.match(/#\w+|\b\w{5,}\b/g) || [];
-    words.forEach(w => { const k = w.toLowerCase(); wordCount[k] = (wordCount[k]||0)+1; });
-  });
-  const sorted = Object.entries(wordCount).filter(([w]) => !['about','their','there','would','could','should','which','these'].includes(w)).sort((a,b) => b[1]-a[1]).slice(0, 5);
-  if (!sorted.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:11px">Nothing trending yet.</div>'; return; }
-  el.innerHTML = sorted.map(([word, count], i) =>
-    `<div class="trend-item" onclick="document.getElementById('search-input').value='${esc(word)}';debounceSearch('${esc(word)}')">
+  const tagCount = {};
+  (posts||[]).forEach(p => { (p.tags||[]).forEach(t => { tagCount[t]=(tagCount[t]||0)+(1+(p.likes_count||0)*0.1); }); });
+  const sorted = Object.entries(tagCount).filter(([t])=>t!=='bubblefyp').sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if (!sorted.length) { el.innerHTML='<div style="color:var(--text-dim);font-size:11px">Nothing trending yet.</div>'; return; }
+  el.innerHTML = sorted.map(([tag,score],i) =>
+    `<div class="trend-item" onclick="showView('tag','${esc(tag)}')">
       <div class="trend-cat">Trending #${i+1}</div>
-      <div class="trend-tag">${esc(word)}</div>
-      <div class="trend-count">${count} post${count>1?'s':''}</div>
+      <div class="trend-tag">#${esc(tag)}</div>
     </div>`
   ).join('');
 }
 
+async function toggleFollowWho(userId, btn) {
+  const isF = myFollowing.has(userId);
+  if (isF) {
+    myFollowing.delete(userId); btn.className='follow-btn follow'; btn.textContent='Follow';
+    await sb.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',userId);
+    const{data:tp}=await sb.from('profiles').select('followers_count').eq('id',userId).single();
+    if(tp)await sb.from('profiles').update({followers_count:Math.max(0,(tp.followers_count||1)-1)}).eq('id',userId);
+    const{data:mp}=await sb.from('profiles').select('following_count').eq('id',currentUser.id).single();
+    if(mp){await sb.from('profiles').update({following_count:Math.max(0,(mp.following_count||1)-1)}).eq('id',currentUser.id);currentProfile.following_count=Math.max(0,(currentProfile.following_count||1)-1);}
+  } else {
+    myFollowing.add(userId); btn.className='follow-btn following'; btn.textContent='Following';
+    await sb.from('follows').insert({follower_id:currentUser.id,following_id:userId});
+    const{data:tp}=await sb.from('profiles').select('followers_count').eq('id',userId).single();
+    if(tp)await sb.from('profiles').update({followers_count:(tp.followers_count||0)+1}).eq('id',userId);
+    const{data:mp}=await sb.from('profiles').select('following_count').eq('id',currentUser.id).single();
+    if(mp){await sb.from('profiles').update({following_count:(mp.following_count||0)+1}).eq('id',currentUser.id);currentProfile.following_count=(currentProfile.following_count||0)+1;}
+    showToast('Following!','success');
+  }
+}
+
 let searchTimer = null;
-function debounceSearch(val) {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {}, 300);
-}
+function debounceSearch(val) { clearTimeout(searchTimer); searchTimer=setTimeout(()=>{},300); }
 
-/* ══════════════════════════════════════
-   AUTH
-══════════════════════════════════════ */
-function showLogin() { document.getElementById('login-form').style.display='block'; document.getElementById('signup-form').style.display='none'; document.getElementById('onboard-form').style.display='none'; clearAuthError(); }
-function showSignup() { document.getElementById('login-form').style.display='none'; document.getElementById('signup-form').style.display='block'; document.getElementById('onboard-form').style.display='none'; clearAuthError(); }
-function showOnboard() { document.getElementById('login-form').style.display='none'; document.getElementById('signup-form').style.display='none'; document.getElementById('onboard-form').style.display='block'; clearAuthError(); showPage('auth-page'); setTimeout(()=>document.getElementById('onboard-username')?.focus(),100); }
-function clearAuthError() { const e=document.getElementById('auth-error'); e.textContent=''; e.classList.remove('visible'); }
-function showAuthError(msg) { const e=document.getElementById('auth-error'); e.textContent=msg; e.classList.add('visible'); }
-function checkPwRules(v) { document.getElementById('rule-upper').classList.toggle('met',/[A-Z]/.test(v)); document.getElementById('rule-lower').classList.toggle('met',/[a-z]/.test(v)); document.getElementById('rule-num').classList.toggle('met',/[0-9]/.test(v)); document.getElementById('rule-special').classList.toggle('met',/[^A-Za-z0-9]/.test(v)); }
+/* ── AUTH ── */
+function showLogin(){document.getElementById('login-form').style.display='block';document.getElementById('signup-form').style.display='none';document.getElementById('onboard-form').style.display='none';clearAuthError();}
+function showSignup(){document.getElementById('login-form').style.display='none';document.getElementById('signup-form').style.display='block';document.getElementById('onboard-form').style.display='none';clearAuthError();}
+function showOnboard(){document.getElementById('login-form').style.display='none';document.getElementById('signup-form').style.display='none';document.getElementById('onboard-form').style.display='block';clearAuthError();showPage('auth-page');setTimeout(()=>document.getElementById('onboard-username')?.focus(),100);}
+function clearAuthError(){const e=document.getElementById('auth-error');e.textContent='';e.classList.remove('visible');}
+function showAuthError(msg){const e=document.getElementById('auth-error');e.textContent=msg;e.classList.add('visible');}
+function checkPwRules(v){document.getElementById('rule-upper').classList.toggle('met',/[A-Z]/.test(v));document.getElementById('rule-lower').classList.toggle('met',/[a-z]/.test(v));document.getElementById('rule-num').classList.toggle('met',/[0-9]/.test(v));document.getElementById('rule-special').classList.toggle('met',/[^A-Za-z0-9]/.test(v));}
 
-async function doLogin() {
+async function doLogin(){
   clearAuthError();
-  const email = document.getElementById('login-email').value.trim();
-  const pw = document.getElementById('login-password').value;
-  const btn = document.getElementById('login-btn');
-  if (!email||!pw) { showAuthError('Fill in all fields.'); return; }
-  btn.disabled=true; btn.textContent='Signing in…';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-  if (error) { showAuthError(error.message); btn.disabled=false; btn.textContent='Sign In'; }
+  const email=document.getElementById('login-email').value.trim(),pw=document.getElementById('login-password').value,btn=document.getElementById('login-btn');
+  if(!email||!pw){showAuthError('Fill in all fields.');return;}
+  btn.disabled=true;btn.textContent='Signing in…';
+  const{error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){showAuthError(error.message);btn.disabled=false;btn.textContent='Sign In';}
 }
-
-async function doSignup() {
+async function doSignup(){
   clearAuthError();
-  const email = document.getElementById('signup-email').value.trim();
-  const pw = document.getElementById('signup-password').value;
-  const btn = document.getElementById('signup-btn');
-  if (!email||!pw) { showAuthError('Fill in all fields.'); return; }
-  if (!/[A-Z]/.test(pw)||!/[a-z]/.test(pw)||!/[0-9]/.test(pw)||!/[^A-Za-z0-9]/.test(pw)) { showAuthError('Password needs uppercase, lowercase, number, and special character.'); return; }
-  btn.disabled=true; btn.textContent='Creating account…';
-  const { error } = await sb.auth.signUp({ email, password: pw });
-  if (error) { showAuthError(error.message); btn.disabled=false; btn.textContent='Create Account'; }
-  else { showOnboard(); }
+  const email=document.getElementById('signup-email').value.trim(),pw=document.getElementById('signup-password').value,btn=document.getElementById('signup-btn');
+  if(!email||!pw){showAuthError('Fill in all fields.');return;}
+  if(!/[A-Z]/.test(pw)||!/[a-z]/.test(pw)||!/[0-9]/.test(pw)||!/[^A-Za-z0-9]/.test(pw)){showAuthError('Password needs uppercase, lowercase, number, and special char.');return;}
+  btn.disabled=true;btn.textContent='Creating…';
+  const{error}=await sb.auth.signUp({email,password:pw});
+  if(error){showAuthError(error.message);btn.disabled=false;btn.textContent='Create Account';}
+  else showOnboard();
 }
+async function doLogout(){await sb.auth.signOut();closeNavDropdown();}
 
-async function doLogout() { await sb.auth.signOut(); closeNavDropdown(); }
-
-/* ── ONBOARDING ── */
-function checkUsernameAvail(val) {
-  clearTimeout(usernameCheckTimer);
-  const el = document.getElementById('username-check');
-  if (!val || val.length < 2) { el.textContent=''; return; }
-  if (!/^[a-zA-Z0-9_]+$/.test(val)) { el.textContent='Letters, numbers, underscores only.'; el.className='username-check err'; return; }
-  el.textContent='Checking…'; el.className='username-check';
-  usernameCheckTimer = setTimeout(async () => {
-    const { data } = await sb.from('profiles').select('id').eq('username', val).maybeSingle();
-    if (data) { el.textContent='Username taken.'; el.className='username-check err'; }
-    else { el.textContent='✓ Available'; el.className='username-check ok'; }
-  }, 500);
-}
-
-async function doOnboard() {
-  const username = document.getElementById('onboard-username').value.trim();
-  const display = document.getElementById('onboard-display').value.trim();
-  const bio = document.getElementById('onboard-bio').value.trim();
-  const errEl = document.getElementById('onboard-error');
-  const btn = document.getElementById('onboard-btn');
+async function doOnboard(){
+  const username=document.getElementById('onboard-username').value.trim();
+  const display=document.getElementById('onboard-display').value.trim();
+  const bio=document.getElementById('onboard-bio').value.trim();
+  const errEl=document.getElementById('onboard-error'),btn=document.getElementById('onboard-btn');
   errEl.style.display='none';
-  if (!username||username.length<2) { errEl.textContent='Username must be 2+ characters.'; errEl.style.display='block'; return; }
-  if (!/^[a-zA-Z0-9_]+$/.test(username)) { errEl.textContent='Letters, numbers, underscores only.'; errEl.style.display='block'; return; }
-  if (!display) { errEl.textContent='Display name is required.'; errEl.style.display='block'; return; }
-  btn.disabled=true; btn.textContent='Checking…';
-  const { data: existing } = await sb.from('profiles').select('id').eq('username', username).maybeSingle();
-  if (existing) { errEl.textContent='Username taken.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Enter Bubble'; return; }
+  if(!username||username.length<2){errEl.textContent='Username 2+ chars.';errEl.style.display='block';return;}
+  if(!/^[a-zA-Z0-9_]+$/.test(username)){errEl.textContent='Letters, numbers, underscores only.';errEl.style.display='block';return;}
+  if(!display){errEl.textContent='Display name required.';errEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Checking…';
+  const{data:existing}=await sb.from('profiles').select('id').eq('username',username).maybeSingle();
+  if(existing){errEl.textContent='Username taken.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enter Bubble';return;}
   btn.textContent='Setting up…';
-  const { error } = await sb.from('profiles').insert({ id: currentUser.id, username, display_name: display, bio });
-  if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Enter Bubble'; return; }
+  const{error}=await sb.from('profiles').insert({id:currentUser.id,username,display_name:display,bio,avatar_url:''});
+  if(error){errEl.textContent=error.message;errEl.style.display='block';btn.disabled=false;btn.textContent='Enter Bubble';return;}
   await loadCurrentProfile();
 }
 
-/* ── EDIT PROFILE ── */
-function openEditProfile() {
-  document.getElementById('edit-display').value = currentProfile?.display_name || '';
-  document.getElementById('edit-bio').value = currentProfile?.bio || '';
-  document.getElementById('edit-error').textContent = '';
-  document.getElementById('edit-profile-modal').classList.add('visible');
-  closeNavDropdown();
-}
-function closeEditProfile() { document.getElementById('edit-profile-modal').classList.remove('visible'); }
-async function saveProfile() {
-  const display = document.getElementById('edit-display').value.trim();
-  const bio = document.getElementById('edit-bio').value.trim();
-  const btn = document.getElementById('edit-save-btn');
-  document.getElementById('edit-error').textContent = '';
-  if (!display) { document.getElementById('edit-error').textContent='Display name required.'; return; }
-  btn.disabled=true; btn.textContent='Saving…';
-  const { error } = await sb.from('profiles').update({ display_name: display, bio }).eq('id', currentUser.id);
-  if (error) { document.getElementById('edit-error').textContent=error.message; btn.disabled=false; btn.textContent='Save Changes'; return; }
-  currentProfile.display_name = display; currentProfile.bio = bio;
-  updateNavUser();
-  closeEditProfile();
-  showToast('Profile updated!', 'success');
-  btn.disabled=false; btn.textContent='Save Changes';
-  if (currentView === 'profile-self') showView('profile-self');
+async function checkUsernameAvail(val){
+  clearTimeout(usernameCheckTimer);
+  const el=document.getElementById('username-check');
+  if(!val||val.length<2){el.textContent='';return;}
+  if(!/^[a-zA-Z0-9_]+$/.test(val)){el.textContent='Invalid chars.';el.className='username-check err';return;}
+  el.textContent='Checking…';el.className='username-check';
+  usernameCheckTimer=setTimeout(async()=>{
+    const{data}=await sb.from('profiles').select('id').eq('username',val).maybeSingle();
+    if(data){el.textContent='Taken.';el.className='username-check err';}
+    else{el.textContent='✓ Available';el.className='username-check ok';}
+  },500);
 }
 
-/* ══════════════════════════════════════
-   NAV
-══════════════════════════════════════ */
-function toggleNavDropdown() { document.getElementById('nav-dropdown').classList.toggle('open'); }
-function closeNavDropdown() { document.getElementById('nav-dropdown').classList.remove('open'); }
-document.addEventListener('click', e => { if (!e.target.closest('#nav-user-btn')) closeNavDropdown(); });
-
-function focusCompose() {
-  if (currentView !== 'feed') { showView('feed'); setTimeout(() => document.getElementById('compose-input')?.focus(), 300); }
-  else document.getElementById('compose-input')?.focus();
-}
-
-/* ══════════════════════════════════════
-   UTILS
-══════════════════════════════════════ */
-function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-function relativeTime(ts) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const s=Math.floor(diff/1000), m=Math.floor(s/60), h=Math.floor(m/60), d=Math.floor(h/24);
-  if (s<60) return `${s}s`; if (m<60) return `${m}m`; if (h<24) return `${h}h`; if (d<30) return `${d}d`;
-  return new Date(ts).toLocaleDateString();
-}
-
-function showToast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
-
-function copySql() {
-  navigator.clipboard.writeText(SQL_SETUP).then(() => showToast('SQL copied!', 'success'));
-}
-
-document.querySelectorAll('.modal-backdrop').forEach(el => {
-  el.addEventListener('mousedown', function(e) { if (e.target === this) this.classList.remove('visible'); });
-});
-document.addEventListener('keydown', e => { if (e.key==='Escape') document.querySelectorAll('.modal-backdrop').forEach(el=>el.classList.remove('visible')); });
-
-/* ══════════════════════════════════════
-   CHAT BUBBLE AUTH
-══════════════════════════════════════ */
-const CHATBUBBLE_BRIDGE = 'https://partials-gh.github.io/chatbubble/bridge.html?source=bubble';
-const CHATBUBBLE_SUPABASE_URL  = 'https://wkgjqpcjoctfoovdtbxf.supabase.co';
-const CHATBUBBLE_SUPABASE_ANON = 'sb_publishable_GEMM0Aw5hDIH7QNV_Uq_hQ_iSE5LeO7';
-// Derived email prefix for CB users in Bubble's auth
-const CB_EMAIL_SUFFIX = '@cb.bubbleapp.net';
-
-let cbPopup = null, cbMessageHandler = null;
-
-function openChatBubbleAuth() {
-  // Open popup
-  const w = 420, h = 580;
-  const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
-  const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
-  cbPopup = window.open(CHATBUBBLE_BRIDGE, 'chatbubble_auth', `width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=no`);
-
-  // Show pending state
+/* ── CHAT BUBBLE AUTH ── */
+let cbPopup=null,cbMessageHandler=null;
+function openChatBubbleAuth(){
+  const w=420,h=580,left=Math.round(window.screenX+(window.outerWidth-w)/2),top=Math.round(window.screenY+(window.outerHeight-h)/2);
+  cbPopup=window.open(CHATBUBBLE_BRIDGE,'chatbubble_auth',`width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=no`);
   document.getElementById('cb-pending-login').classList.add('visible');
-  document.getElementById('cb-login-btn').style.display = 'none';
-
-  // Listen for postMessage from bridge
-  cbMessageHandler = async (event) => {
-    if (event.origin !== 'https://partials-gh.github.io') return;
-    if (!event.data || event.data.type !== 'CHATBUBBLE_AUTH_SUCCESS') return;
-    window.removeEventListener('message', cbMessageHandler);
-    cbMessageHandler = null;
+  document.getElementById('cb-login-btn').style.display='none';
+  cbMessageHandler=async(event)=>{
+    if(event.origin!==BUBBLE_ORIGIN)return;
+    if(!event.data||event.data.type!=='CHATBUBBLE_AUTH_SUCCESS')return;
+    window.removeEventListener('message',cbMessageHandler);cbMessageHandler=null;
     hideCbPending();
     await handleChatBubbleAuth(event.data);
   };
-  window.addEventListener('message', cbMessageHandler);
-
-  // Detect if popup closed without completing
-  const pollClose = setInterval(() => {
-    if (cbPopup && cbPopup.closed) {
-      clearInterval(pollClose);
-      if (cbMessageHandler) {
-        window.removeEventListener('message', cbMessageHandler);
-        cbMessageHandler = null;
-        hideCbPending();
-      }
-    }
-  }, 500);
+  window.addEventListener('message',cbMessageHandler);
+  const poll=setInterval(()=>{if(cbPopup&&cbPopup.closed){clearInterval(poll);if(cbMessageHandler){window.removeEventListener('message',cbMessageHandler);cbMessageHandler=null;hideCbPending();}}},500);
 }
+function cancelChatBubbleAuth(){if(cbPopup&&!cbPopup.closed)cbPopup.close();if(cbMessageHandler){window.removeEventListener('message',cbMessageHandler);cbMessageHandler=null;}hideCbPending();}
+function hideCbPending(){document.getElementById('cb-pending-login').classList.remove('visible');document.getElementById('cb-login-btn').style.display='';}
 
-function cancelChatBubbleAuth() {
-  if (cbPopup && !cbPopup.closed) cbPopup.close();
-  if (cbMessageHandler) { window.removeEventListener('message', cbMessageHandler); cbMessageHandler = null; }
-  hideCbPending();
-}
-
-function hideCbPending() {
-  document.getElementById('cb-pending-login').classList.remove('visible');
-  document.getElementById('cb-login-btn').style.display = '';
-}
-
-async function handleChatBubbleAuth(data) {
-  // data = { user_id, username, email }
-  const cbUserId   = data.user_id;
-  const cbUsername = data.username || 'user_' + data.user_id.slice(0, 8);
-  const cbEmail    = data.email;
-
-  const derivedEmail    = `cb_${cbUserId}${CB_EMAIL_SUFFIX}`;
-  const derivedPassword = btoa(`cb_secret_${cbUserId}_bubble_2025`).slice(0, 32) + 'Aa1!';
-
+async function handleChatBubbleAuth(data){
+  const cbUserId=data.user_id,cbUsername=data.username||'user_'+data.user_id.slice(0,8);
+  const derivedEmail=`cb_${cbUserId}${CB_EMAIL_SUFFIX}`;
+  const derivedPassword=btoa(`cb_secret_${cbUserId}_bubble_2025`).slice(0,32)+'Aa1!';
   document.getElementById('auth-error').classList.remove('visible');
-
-  // ── Step 1: try sign in (existing CB user) ──
-  const { data: signInData, error: signInErr } = await sb.auth.signInWithPassword({
-    email: derivedEmail, password: derivedPassword
-  });
-
-  if (!signInErr && signInData?.user) {
-    currentUser = signInData.user;
-    // Profile may or may not exist — loadCurrentProfile handles both
-    await loadCurrentProfileCB(cbUsername);
-    return;
-  }
-
-  // ── Step 2: new CB user — sign up ──
-  const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
-    email: derivedEmail, password: derivedPassword
-  });
-  if (signUpErr) { showAuthError('Chat Bubble auth failed: ' + signUpErr.message); return; }
-
-  // After signUp, session may not be active yet — sign in immediately to get a real session
-  const { data: signInData2, error: signInErr2 } = await sb.auth.signInWithPassword({
-    email: derivedEmail, password: derivedPassword
-  });
-  if (signInErr2) { showAuthError('Chat Bubble auth failed: ' + signInErr2.message); return; }
-
-  currentUser = signInData2.user;
+  const{data:signInData,error:signInErr}=await sb.auth.signInWithPassword({email:derivedEmail,password:derivedPassword});
+  if(!signInErr&&signInData?.user){currentUser=signInData.user;await loadCurrentProfileCB(cbUsername);return;}
+  const{data:signUpData,error:signUpErr}=await sb.auth.signUp({email:derivedEmail,password:derivedPassword});
+  if(signUpErr){showAuthError('Chat Bubble auth failed: '+signUpErr.message);return;}
+  const{data:signInData2,error:signInErr2}=await sb.auth.signInWithPassword({email:derivedEmail,password:derivedPassword});
+  if(signInErr2){showAuthError('Chat Bubble auth failed: '+signInErr2.message);return;}
+  currentUser=signInData2.user;
   await loadCurrentProfileCB(cbUsername);
 }
 
-async function loadCurrentProfileCB(cbUsername) {
-  // Check if profile already exists
-  const { data: existing } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  if (existing) {
-    // Profile exists — just log in, no onboarding
-    currentProfile = existing;
-    updateNavUser();
-    await loadMyLikes();
-    await loadMyFollowing();
-    showPage('app-page');
-    showView('feed');
-    loadWhoToFollow();
-    loadTrending();
-    return;
-  }
-
-  // New profile — silently create it using CB username, no onboarding
-  // Handle username conflicts by appending a short suffix
-  let username = cbUsername.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 20);
-  const { data: taken } = await sb.from('profiles').select('id').eq('username', username).maybeSingle();
-  if (taken) username = username.slice(0, 15) + '_' + Math.random().toString(36).slice(2, 6);
-
-  const { error: insertErr } = await sb.from('profiles').insert({
-    id:           currentUser.id,
-    username:     username,
-    display_name: cbUsername,
-    bio:          '',
-    avatar_url:   ''
-  });
-
-  if (insertErr) { showAuthError('Failed to create profile: ' + insertErr.message); return; }
-
-  const { data: newProfile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  currentProfile = newProfile;
-  updateNavUser();
-  await loadMyLikes();
-  await loadMyFollowing();
-  showPage('app-page');
-  showView('feed');
-  loadWhoToFollow();
-  loadTrending();
-  showToast('Welcome to Bubble, ' + username + '!', 'success');
+async function loadCurrentProfileCB(cbUsername){
+  const{data:existing}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  if(existing){currentProfile=existing;updateNavUser();await loadMyLikes();await loadMyFollowing();showPage('app-page');showView('feed');loadWhoToFollow();loadTrending();return;}
+  let username=cbUsername.replace(/[^a-zA-Z0-9_]/g,'_').slice(0,20);
+  const{data:taken}=await sb.from('profiles').select('id').eq('username',username).maybeSingle();
+  if(taken)username=username.slice(0,15)+'_'+Math.random().toString(36).slice(2,6);
+  const{error:insertErr}=await sb.from('profiles').insert({id:currentUser.id,username,display_name:cbUsername,bio:'',avatar_url:''});
+  if(insertErr){showAuthError('Failed to create profile: '+insertErr.message);return;}
+  const{data:newProfile}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  currentProfile=newProfile;updateNavUser();await loadMyLikes();await loadMyFollowing();showPage('app-page');showView('feed');loadWhoToFollow();loadTrending();
+  showToast('Welcome to Bubble, '+username+'!','success');
 }
+
+/* ── EDIT PROFILE + PFP ── */
+let pfpPending=null; // null=no change, ''=clear, string=url
+
+function openEditProfile(){
+  document.getElementById('edit-display').value=currentProfile?.display_name||'';
+  document.getElementById('edit-bio').value=currentProfile?.bio||'';
+  document.getElementById('edit-error').textContent='';
+  document.getElementById('pfp-url-field').style.display='none';
+  pfpPending=null; pendingAvatarFile=null;
+  refreshPfpPreview(currentProfile?.avatar_url||'');
+  document.getElementById('edit-profile-modal').classList.add('visible');
+  closeNavDropdown();
+}
+function closeEditProfile(){document.getElementById('edit-profile-modal').classList.remove('visible');}
+
+function refreshPfpPreview(url){
+  const el=document.getElementById('edit-avatar-preview');
+  if(!el)return;
+  if(url){el.innerHTML=`<img src="${esc(url)}" alt="" style="width:100%;height:100%;object-fit:cover">`;}
+  else{el.innerHTML=esc((currentProfile?.display_name||currentProfile?.username||'?')[0].toUpperCase());}
+}
+function toggleUrlField(){const f=document.getElementById('pfp-url-field');f.style.display=f.style.display==='none'?'block':'none';}
+function previewUrlPfp(val){if(val.startsWith('http')){pfpPending=val;pendingAvatarFile=null;refreshPfpPreview(val);}}
+function clearPfp(){pfpPending='';pendingAvatarFile=null;document.getElementById('pfp-url-field').style.display='none';refreshPfpPreview('');}
+function handlePfpFile(e){
+  const file=e.target.files[0];if(!file)return;
+  if(!ALLOWED_IMAGE_TYPES.includes(file.type)){showToast('Unsupported format. Use JPG, PNG, GIF, or WebP.','error');return;}
+  if(file.size>5*1024*1024){showToast('Profile picture must be under 5MB.','error');return;}
+  pendingAvatarFile=file;pfpPending=null;
+  const reader=new FileReader();
+  reader.onload=ev=>refreshPfpPreview(ev.target.result);
+  reader.readAsDataURL(file);
+  document.getElementById('pfp-url-field').style.display='none';
+}
+
+async function saveProfile(){
+  const display=document.getElementById('edit-display').value.trim();
+  const bio=document.getElementById('edit-bio').value.trim();
+  const btn=document.getElementById('edit-save-btn');
+  document.getElementById('edit-error').textContent='';
+  if(!display){document.getElementById('edit-error').textContent='Display name required.';return;}
+  btn.disabled=true;btn.textContent='Saving…';
+  let avatarUrl=currentProfile.avatar_url||'';
+  if(pendingAvatarFile){
+    const ext=pendingAvatarFile.name.split('.').pop();
+    const path=`${currentUser.id}.${ext}`;
+    const{error:upErr}=await sb.storage.from('avatars').upload(path,pendingAvatarFile,{upsert:true});
+    if(upErr){
+      // Fallback: store as base64 (small images only)
+      if(pendingAvatarFile.size<500*1024){
+        const reader=new FileReader();
+        avatarUrl=await new Promise(res=>{reader.onload=e=>res(e.target.result);reader.readAsDataURL(pendingAvatarFile);});
+      } else {
+        document.getElementById('edit-error').textContent='Upload failed: '+upErr.message+'. Try a URL instead.';
+        btn.disabled=false;btn.textContent='Save Changes';return;
+      }
+    } else {
+      const{data}=sb.storage.from('avatars').getPublicUrl(path);
+      avatarUrl=data.publicUrl+'?t='+Date.now();
+    }
+  } else if(pfpPending!==null){
+    avatarUrl=pfpPending;
+  }
+  const{error}=await sb.from('profiles').update({display_name:display,bio,avatar_url:avatarUrl}).eq('id',currentUser.id);
+  if(error){document.getElementById('edit-error').textContent=error.message;btn.disabled=false;btn.textContent='Save Changes';return;}
+  currentProfile.display_name=display;currentProfile.bio=bio;currentProfile.avatar_url=avatarUrl;
+  updateNavUser();closeEditProfile();showToast('Profile updated!','success');
+  btn.disabled=false;btn.textContent='Save Changes';pfpPending=null;pendingAvatarFile=null;
+  if(currentView==='profile-self')showView('profile-self');
+}
+
+/* ── LIGHTBOX ── */
+function openLightbox(url, type='img'){
+  const lb=document.getElementById('lightbox');
+  const img=document.getElementById('lightbox-img');
+  const vid=document.getElementById('lightbox-vid');
+  if(type==='video'){img.style.display='none';vid.style.display='block';vid.src=url;}
+  else{vid.style.display='none';img.style.display='block';img.src=url;}
+  lb.classList.add('open');
+}
+function closeLightbox(){
+  const lb=document.getElementById('lightbox');
+  lb.classList.remove('open');
+  document.getElementById('lightbox-vid').pause?.();
+}
+
+/* ── NAV ── */
+function toggleNavDropdown(){document.getElementById('nav-dropdown').classList.toggle('open');}
+function closeNavDropdown(){document.getElementById('nav-dropdown').classList.remove('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('#nav-user-btn'))closeNavDropdown();});
+function focusCompose(){if(currentView!=='feed'){showView('feed');setTimeout(()=>document.getElementById('compose-input')?.focus(),300);}else document.getElementById('compose-input')?.focus();}
+
+/* ── UTILS ── */
+function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function relativeTime(ts){const diff=Date.now()-new Date(ts).getTime(),s=Math.floor(diff/1000),m=Math.floor(s/60),h=Math.floor(m/60),d=Math.floor(h/24);if(s<60)return s+'s';if(m<60)return m+'m';if(h<24)return h+'h';if(d<30)return d+'d';return new Date(ts).toLocaleDateString();}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),2800);}
+function copySql(){navigator.clipboard.writeText(SQL_SETUP).then(()=>showToast('SQL copied!','success'));}
+
+document.querySelectorAll('.modal-backdrop').forEach(el=>{el.addEventListener('mousedown',function(e){if(e.target===this)this.classList.remove('visible');});});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal-backdrop').forEach(el=>el.classList.remove('visible'));closeLightbox();}});
 
 init();
 </script>
