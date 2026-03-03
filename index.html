@@ -598,6 +598,36 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .username-check { font-size: 10px; margin-top: 5px; }
 .username-check.ok { color: var(--accent); }
 .username-check.err { color: var(--danger); }
+
+/* ── CHAT BUBBLE AUTH BUTTON ── */
+.cb-auth-btn {
+  width: 100%; padding: 11px; border-radius: 10px;
+  border: 1px solid rgba(74,222,128,0.25);
+  background: var(--accent-dim); color: var(--accent);
+  font-family: var(--mono); font-size: 13px; cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: center;
+  justify-content: center; gap: 9px; margin-bottom: 18px;
+}
+.cb-auth-btn:hover { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.4); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,222,128,0.1); }
+.cb-auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.cb-auth-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.auth-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.auth-divider-line { flex: 1; height: 1px; background: var(--border); }
+.auth-divider-text { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap; }
+
+/* CB auth pending state */
+.cb-pending {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+  display: none; align-items: center; gap: 12px;
+}
+.cb-pending.visible { display: flex; }
+.cb-pending-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: cbPulse 1.2s ease-in-out infinite; }
+@keyframes cbPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.cb-pending-text { font-size: 12px; color: var(--text-muted); flex: 1; }
+.cb-pending-cancel { font-size: 11px; color: var(--text-dim); background: none; border: none; cursor: pointer; font-family: var(--mono); padding: 0; transition: color 0.15s; }
+.cb-pending-cancel:hover { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -620,6 +650,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div id="login-form">
       <div class="auth-title">Welcome back.</div>
       <div class="auth-sub">Sign into Bubble</div>
+
+      <button class="cb-auth-btn" id="cb-login-btn" onclick="openChatBubbleAuth()">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Sign in with Chat Bubble
+      </button>
+      <div class="cb-pending" id="cb-pending-login">
+        <div class="cb-pending-dot"></div>
+        <div class="cb-pending-text">Waiting for Chat Bubble authorization…</div>
+        <button class="cb-pending-cancel" onclick="cancelChatBubbleAuth()">Cancel</button>
+      </div>
+
+      <div class="auth-divider"><div class="auth-divider-line"></div><div class="auth-divider-text">or sign in with email</div><div class="auth-divider-line"></div></div>
+
       <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="login-email" type="email" placeholder="you@email.com" autocomplete="email"></div>
       <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign In</button>
@@ -1594,6 +1637,108 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
   el.addEventListener('mousedown', function(e) { if (e.target === this) this.classList.remove('visible'); });
 });
 document.addEventListener('keydown', e => { if (e.key==='Escape') document.querySelectorAll('.modal-backdrop').forEach(el=>el.classList.remove('visible')); });
+
+/* ══════════════════════════════════════
+   CHAT BUBBLE AUTH
+══════════════════════════════════════ */
+const CHATBUBBLE_BRIDGE = 'https://partials-gh.github.io/chatbubble/bridge.html?source=bubble';
+const CHATBUBBLE_SUPABASE_URL  = 'https://wkgjqpcjoctfoovdtbxf.supabase.co';
+const CHATBUBBLE_SUPABASE_ANON = 'sb_publishable_GEMM0Aw5hDIH7QNV_Uq_hQ_iSE5LeO7';
+// Derived email prefix for CB users in Bubble's auth
+const CB_EMAIL_SUFFIX = '@chatbubble.bubble.app';
+
+let cbPopup = null, cbMessageHandler = null;
+
+function openChatBubbleAuth() {
+  // Open popup
+  const w = 420, h = 580;
+  const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
+  const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+  cbPopup = window.open(CHATBUBBLE_BRIDGE, 'chatbubble_auth', `width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=no`);
+
+  // Show pending state
+  document.getElementById('cb-pending-login').classList.add('visible');
+  document.getElementById('cb-login-btn').style.display = 'none';
+
+  // Listen for postMessage from bridge
+  cbMessageHandler = async (event) => {
+    if (event.origin !== 'https://partials-gh.github.io') return;
+    if (!event.data || event.data.type !== 'CHATBUBBLE_AUTH_SUCCESS') return;
+    window.removeEventListener('message', cbMessageHandler);
+    cbMessageHandler = null;
+    hideCbPending();
+    await handleChatBubbleAuth(event.data);
+  };
+  window.addEventListener('message', cbMessageHandler);
+
+  // Detect if popup closed without completing
+  const pollClose = setInterval(() => {
+    if (cbPopup && cbPopup.closed) {
+      clearInterval(pollClose);
+      if (cbMessageHandler) {
+        window.removeEventListener('message', cbMessageHandler);
+        cbMessageHandler = null;
+        hideCbPending();
+      }
+    }
+  }, 500);
+}
+
+function cancelChatBubbleAuth() {
+  if (cbPopup && !cbPopup.closed) cbPopup.close();
+  if (cbMessageHandler) { window.removeEventListener('message', cbMessageHandler); cbMessageHandler = null; }
+  hideCbPending();
+}
+
+function hideCbPending() {
+  document.getElementById('cb-pending-login').classList.remove('visible');
+  document.getElementById('cb-login-btn').style.display = '';
+}
+
+async function handleChatBubbleAuth(data) {
+  // data = { user_id, username, email }
+  const cbUserId  = data.user_id;
+  const cbUsername = data.username;
+  const cbEmail    = data.email;
+
+  // Derive a stable email+password for this CB user in Bubble's auth
+  const derivedEmail = `cb_${cbUserId}${CB_EMAIL_SUFFIX}`;
+  // Password is deterministic: sha-ish using btoa of user_id repeated
+  const derivedPassword = btoa(`cb_secret_${cbUserId}_bubble_2025`).slice(0, 32) + 'Aa1!';
+
+  showAuthError('');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.remove('visible');
+
+  // Try signing in first
+  const { data: signInData, error: signInErr } = await sb.auth.signInWithPassword({
+    email: derivedEmail, password: derivedPassword
+  });
+
+  if (!signInErr && signInData?.user) {
+    // Existing user — load profile
+    currentUser = signInData.user;
+    await loadCurrentProfile();
+    return;
+  }
+
+  // New user — sign up
+  const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
+    email: derivedEmail, password: derivedPassword
+  });
+
+  if (signUpErr) { showAuthError('Chat Bubble auth failed: ' + signUpErr.message); return; }
+  currentUser = signUpData.user;
+
+  // Go to onboarding with CB username pre-filled
+  showOnboard();
+  setTimeout(() => {
+    const unInput = document.getElementById('onboard-username');
+    const dnInput = document.getElementById('onboard-display');
+    if (unInput) { unInput.value = cbUsername; checkUsernameAvail(cbUsername); }
+    if (dnInput) { dnInput.value = cbUsername; }
+  }, 100);
+}
 
 init();
 </script>
