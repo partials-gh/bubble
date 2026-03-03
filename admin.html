@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;1,9..144,200&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0b0b0d;--surface:#131316;--surface2:#1a1a1f;--surface3:#202026;
+  --border:#252529;--border-strong:#333339;
+  --text:#e4e2dc;--text-muted:#565660;--text-dim:#353540;
+  --accent:#4ade80;--accent-dim:#162a1e;
+  --danger:#f87171;--danger-dim:#2a1616;
+  --warning:#fbbf24;--warning-dim:#2a2010;
+  --mono:'DM Mono',monospace;--serif:'Fraunces',serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:hidden;}
+*{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* AUTH GATE */
+#gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;}
+.gate-grid{position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(248,113,113,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(248,113,113,0.03) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 60% at 50% 50%,black 40%,transparent 100%);}
+.gate-card{width:380px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:32px;box-shadow:0 40px 100px rgba(0,0,0,0.8);position:relative;z-index:1;animation:cardIn 0.4s cubic-bezier(0.2,0,0,1);}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(0.97)}to{opacity:1;transform:none}}
+.gate-brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;}
+.gate-logo{width:30px;height:30px;background:var(--danger-dim);border:1px solid rgba(248,113,113,0.2);border-radius:8px;display:grid;place-items:center;}
+.gate-logo svg{width:14px;height:14px;stroke:var(--danger);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.gate-name{font-family:var(--serif);font-weight:200;font-size:16px;}
+.gate-badge{font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--danger);background:var(--danger-dim);border:1px solid rgba(248,113,113,0.2);border-radius:4px;padding:2px 6px;margin-left:4px;}
+.gate-title{font-family:var(--serif);font-weight:200;font-size:22px;letter-spacing:-0.5px;margin-bottom:4px;}
+.gate-sub{font-size:11px;color:var(--text-muted);margin-bottom:24px;}
+.form-field{margin-bottom:13px;}
+.form-label{display:block;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px;}
+.form-input{width:100%;padding:10px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color 0.15s;}
+.form-input:focus{border-color:var(--danger);}
+.form-input::placeholder{color:var(--text-dim);}
+.gate-btn{width:100%;padding:11px;border-radius:9px;border:none;background:var(--danger);color:#fff;font-family:var(--mono);font-size:13px;cursor:pointer;transition:all 0.15s;margin-top:4px;}
+.gate-btn:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.gate-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.gate-error{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:7px;padding:9px 13px;font-size:12px;color:var(--danger);margin-bottom:14px;display:none;}
+.gate-error.visible{display:block;}
+.denied-icon{font-size:40px;text-align:center;margin-bottom:12px;}
+.denied-title{font-family:var(--serif);font-weight:200;font-size:18px;color:var(--danger);text-align:center;margin-bottom:6px;}
+.denied-sub{font-size:12px;color:var(--text-muted);text-align:center;}
+
+/* APP LAYOUT */
+#app{display:none;min-height:100vh;}
+#app.active{display:flex;}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow-y:auto;}
+.sb-brand{padding:20px 16px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.sb-logo{width:26px;height:26px;background:var(--danger-dim);border:1px solid rgba(248,113,113,0.2);border-radius:7px;display:grid;place-items:center;}
+.sb-logo svg{width:12px;height:12px;stroke:var(--danger);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.sb-title{font-family:var(--serif);font-weight:200;font-size:14px;}
+.sb-badge{font-size:8px;text-transform:uppercase;letter-spacing:0.6px;color:var(--danger);background:var(--danger-dim);border:1px solid rgba(248,113,113,0.15);border-radius:3px;padding:1px 5px;}
+.sb-nav{flex:1;padding:10px 8px;}
+.nav-label{font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim);padding:10px 8px 4px;}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;border:none;background:none;font-family:var(--mono);font-size:12px;color:var(--text-muted);width:100%;text-align:left;transition:all 0.12s;}
+.nav-btn:hover{color:var(--text);background:var(--surface2);}
+.nav-btn.active{color:var(--accent);background:var(--accent-dim);}
+.nav-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+.sb-footer{padding:12px 8px;border-top:1px solid var(--border);}
+.admin-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;}
+.admin-chip-av{width:26px;height:26px;border-radius:6px;background:var(--danger-dim);border:1px solid rgba(248,113,113,0.2);display:grid;place-items:center;font-family:var(--serif);font-size:11px;color:var(--danger);flex-shrink:0;}
+.admin-chip-info{flex:1;min-width:0;}
+.admin-chip-name{font-size:11px;color:var(--text);}
+.admin-chip-role{font-size:9px;color:var(--danger);text-transform:uppercase;letter-spacing:0.5px;}
+.logout-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;transition:color 0.12s;padding:2px;}
+.logout-btn:hover{color:var(--danger);}
+.logout-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+
+/* MAIN */
+.main{flex:1;min-width:0;overflow-y:auto;}
+.page-hdr{position:sticky;top:0;z-index:50;background:rgba(11,11,13,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}
+.page-title{font-family:var(--serif);font-weight:200;font-size:20px;letter-spacing:-0.4px;}
+.page-sub{font-size:11px;color:var(--text-muted);margin-top:1px;}
+.content{padding:24px;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;transition:border-color 0.15s;}
+.stat-card:hover{border-color:var(--border-strong);}
+.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.stat-lbl svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.5;}
+.stat-val{font-family:var(--serif);font-weight:200;font-size:32px;letter-spacing:-1px;line-height:1;margin-bottom:4px;}
+.stat-sub{font-size:10px;color:var(--text-dim);}
+.stat-sub.up{color:var(--accent);}
+
+/* TABLE */
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.tbl-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.tbl-hdr-title{font-size:13px;color:var(--text);}
+.tbl-search{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;width:200px;transition:border-color 0.15s;}
+.tbl-search:focus{border-color:var(--accent);}
+.tbl-search::placeholder{color:var(--text-dim);}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 14px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);border-bottom:1px solid var(--border);font-weight:400;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.015);}
+.td-avatar{width:28px;height:28px;border-radius:7px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);display:grid;place-items:center;font-family:var(--serif);font-size:11px;color:var(--accent);text-transform:uppercase;flex-shrink:0;overflow:hidden;}
+.td-avatar img{width:100%;height:100%;object-fit:cover;}
+.td-muted{color:var(--text-muted);}
+.td-dim{color:var(--text-dim);}
+.badge{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;border:1px solid;}
+.badge-green{color:var(--accent);background:var(--accent-dim);border-color:rgba(74,222,128,0.2);}
+.badge-red{color:var(--danger);background:var(--danger-dim);border-color:rgba(248,113,113,0.2);}
+.badge-yellow{color:var(--warning);background:var(--warning-dim);border-color:rgba(251,191,36,0.2);}
+
+/* ACTION BUTTONS */
+.act-btn{padding:4px 10px;border-radius:6px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.12s;border:1px solid var(--border);background:none;color:var(--text-muted);}
+.act-btn:hover{color:var(--text);background:var(--surface2);}
+.act-btn.danger{border-color:rgba(248,113,113,0.2);color:var(--danger);background:var(--danger-dim);}
+.act-btn.danger:hover{background:rgba(248,113,113,0.15);}
+
+/* POST PREVIEW */
+.post-preview{max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted);font-size:12px;}
+.post-media-badge{font-size:9px;color:var(--warning);background:var(--warning-dim);border:1px solid rgba(251,191,36,0.2);border-radius:4px;padding:1px 5px;margin-left:4px;}
+
+/* LOADING */
+.loader{padding:40px;text-align:center;color:var(--text-dim);font-size:12px;}
+.empty-state{padding:40px;text-align:center;color:var(--text-dim);font-size:12px;}
+.empty-icon{font-size:28px;margin-bottom:10px;opacity:0.3;}
+
+/* MODAL */
+.modal-bk{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+.modal-bk.open{display:flex;animation:bkIn 0.15s ease;}
+@keyframes bkIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:400px;max-width:calc(100vw-32px);padding:24px;box-shadow:0 32px 80px rgba(0,0,0,0.8);animation:mIn 0.2s cubic-bezier(0.2,0,0,1);}
+@keyframes mIn{from{opacity:0;transform:scale(0.94) translateY(10px)}to{opacity:1;transform:none}}
+.modal-title{font-family:var(--serif);font-weight:200;font-size:18px;margin-bottom:14px;}
+.modal-content{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:20px;}
+.modal-post-text{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;color:var(--text);line-height:1.6;margin-bottom:20px;max-height:200px;overflow-y:auto;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+.modal-btn-cancel{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text-muted);font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.12s;}
+.modal-btn-cancel:hover{color:var(--text);background:var(--surface2);}
+.modal-btn-danger{padding:8px 16px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.12s;}
+.modal-btn-danger:hover{filter:brightness(1.1);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:12px;color:var(--text);z-index:9999;transition:all 0.28s cubic-bezier(0.2,0,0,1);opacity:0;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.success{border-color:rgba(74,222,128,0.3);color:var(--accent);}
+.toast.error{border-color:rgba(248,113,113,0.3);color:var(--danger);}
+
+/* REFRESH BTN */
+.refresh-btn{padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;}
+.refresh-btn:hover{color:var(--text);background:var(--surface);}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="gate">
+  <div class="gate-grid"></div>
+  <div class="gate-card" id="gate-card">
+    <div class="gate-brand">
+      <div class="gate-logo"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <span class="gate-name">Bubble</span><span class="gate-badge">Admin</span>
+    </div>
+    <div class="gate-title">Admin Access</div>
+    <div class="gate-sub">Sign in with your Bubble account to continue.</div>
+    <div class="gate-error" id="gate-error"></div>
+    <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="gate-email" type="email" placeholder="you@email.com"></div>
+    <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="gate-pw" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')gateLogin()"></div>
+    <button class="gate-btn" id="gate-btn" onclick="gateLogin()">Sign In</button>
+  </div>
+  <!-- ACCESS DENIED -->
+  <div id="denied-card" style="display:none" class="gate-card">
+    <div class="denied-icon">🚫</div>
+    <div class="denied-title">Access Denied</div>
+    <div class="denied-sub">This dashboard is restricted to administrators only.<br><br>You're signed in as <strong id="denied-username"></strong>, which doesn't have admin access.</div>
+    <button class="gate-btn" style="margin-top:20px;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted)" onclick="gateLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <span class="sb-title">Admin</span><span class="sb-badge">Bubble</span>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-label">Overview</div>
+      <button class="nav-btn active" id="nb-dashboard" onclick="showSection('dashboard')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+      </button>
+      <div class="nav-label">Content</div>
+      <button class="nav-btn" id="nb-posts" onclick="showSection('posts')">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>All Posts
+      </button>
+      <div class="nav-label">People</div>
+      <button class="nav-btn" id="nb-users" onclick="showSection('users')">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Users
+      </button>
+    </nav>
+    <div class="sb-footer">
+      <div class="admin-chip">
+        <div class="admin-chip-av" id="admin-av">P</div>
+        <div class="admin-chip-info"><div class="admin-chip-name">Partials</div><div class="admin-chip-role">Admin</div></div>
+        <button class="logout-btn" onclick="gateLogout()" title="Sign out"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main" id="main-area">
+    <div class="loader">Loading…</div>
+  </main>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-bk" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirm Action</div>
+    <div class="modal-content" id="confirm-body"></div>
+    <div class="modal-post-text" id="confirm-detail" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="modal-btn-danger" id="confirm-ok" onclick="">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL  = 'https://pldimursqhpazqcgfrwu.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsZGltdXJzcWhwYXpxY2dmcnd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NjU5MzMsImV4cCI6MjA4ODE0MTkzM30.3PbCzSx_vmY168kZoYVGK3i8OdUEn2iXl1qms002iLo';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const ADMIN_USERNAME = 'Partials';
+
+let adminUser = null, adminProfile = null, currentSection = 'dashboard';
+let allUsers = [], allPosts = [];
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { adminUser = session.user; await checkAdminAccess(); }
+  else showGate();
+}
+
+function showGate() { document.getElementById('gate').style.display='flex'; document.getElementById('app').classList.remove('active'); }
+function showApp() { document.getElementById('gate').style.display='none'; document.getElementById('app').classList.add('active'); showSection('dashboard'); }
+
+async function checkAdminAccess() {
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', adminUser.id).single();
+  if (!profile || profile.username !== ADMIN_USERNAME) {
+    document.getElementById('gate-card').style.display = 'none';
+    document.getElementById('denied-card').style.display = 'block';
+    document.getElementById('denied-username').textContent = profile?.username || adminUser.email;
+    return;
+  }
+  adminProfile = profile;
+  const av = document.getElementById('admin-av');
+  if (profile.avatar_url) av.innerHTML = `<img src="${esc(profile.avatar_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`;
+  else av.textContent = (profile.display_name||profile.username||'P')[0].toUpperCase();
+  showApp();
+}
+
+async function gateLogin() {
+  const email = document.getElementById('gate-email').value.trim();
+  const pw = document.getElementById('gate-pw').value;
+  const errEl = document.getElementById('gate-error');
+  const btn = document.getElementById('gate-btn');
+  errEl.classList.remove('visible');
+  if (!email || !pw) { errEl.textContent='Fill in all fields.'; errEl.classList.add('visible'); return; }
+  btn.disabled=true; btn.textContent='Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) { errEl.textContent=error.message; errEl.classList.add('visible'); btn.disabled=false; btn.textContent='Sign In'; return; }
+  adminUser = data.user;
+  await checkAdminAccess();
+  btn.disabled=false; btn.textContent='Sign In';
+}
+async function gateLogout() { await sb.auth.signOut(); adminUser=null; adminProfile=null; document.getElementById('gate-card').style.display='block'; document.getElementById('denied-card').style.display='none'; showGate(); }
+
+function showSection(section) {
+  currentSection = section;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`nb-${section}`)?.classList.add('active');
+  const main = document.getElementById('main-area');
+  if (section === 'dashboard') renderDashboard(main);
+  else if (section === 'posts') renderPosts(main);
+  else if (section === 'users') renderUsers(main);
+}
+
+/* ── DASHBOARD ── */
+async function renderDashboard(main) {
+  main.innerHTML = `<div class="page-hdr"><div><div class="page-title">Dashboard</div><div class="page-sub">Platform overview</div></div><button class="refresh-btn" onclick="showSection('dashboard')">↻ Refresh</button></div><div class="content"><div class="loader">Loading stats…</div></div>`;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString();
+  const week = new Date(Date.now()-7*24*60*60*1000).toISOString();
+
+  const [
+    { count: totalUsers },
+    { count: totalPosts },
+    { count: totalLikes },
+    { count: newUsersToday },
+    { count: newPostsToday },
+    { data: recentPosts }
+  ] = await Promise.all([
+    sb.from('profiles').select('*',{count:'exact',head:true}),
+    sb.from('posts').select('*',{count:'exact',head:true}),
+    sb.from('likes').select('*',{count:'exact',head:true}),
+    sb.from('profiles').select('*',{count:'exact',head:true}).gte('created_at',todayStr),
+    sb.from('posts').select('*',{count:'exact',head:true}).gte('created_at',todayStr),
+    sb.from('posts').select('*, profiles(username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(5)
+  ]);
+
+  const content = main.querySelector('.content');
+  content.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-lbl"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Total Users</div>
+        <div class="stat-val">${totalUsers||0}</div>
+        <div class="stat-sub up">+${newUsersToday||0} today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Total Posts</div>
+        <div class="stat-val">${totalPosts||0}</div>
+        <div class="stat-sub up">+${newPostsToday||0} today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>Total Likes</div>
+        <div class="stat-val">${totalLikes||0}</div>
+        <div class="stat-sub">All time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Avg Posts/User</div>
+        <div class="stat-val">${totalUsers ? (totalPosts/totalUsers).toFixed(1) : '0'}</div>
+        <div class="stat-sub">engagement</div>
+      </div>
+    </div>
+
+    <div class="tbl-card">
+      <div class="tbl-hdr"><div class="tbl-hdr-title">Recent Posts</div></div>
+      <table>
+        <thead><tr><th>User</th><th>Content</th><th>Likes</th><th>Posted</th><th></th></tr></thead>
+        <tbody>${(recentPosts||[]).map(p => {
+          const pr = p.profiles;
+          const av = pr?.avatar_url ? `<img src="${esc(pr.avatar_url)}" alt="">` : esc(((pr?.display_name||pr?.username||'?')[0]).toUpperCase());
+          const hasMedia = (p.media_urls||[]).length > 0;
+          return `<tr>
+            <td><div style="display:flex;align-items:center;gap:8px"><div class="td-avatar">${av}</div><span>@${esc(pr?.username||'?')}</span></div></td>
+            <td><div class="post-preview">${esc(p.content||'')}${hasMedia?'<span class="post-media-badge">📎 media</span>':''}</div></td>
+            <td>${p.likes_count||0}</td>
+            <td class="td-dim">${relTime(p.created_at)}</td>
+            <td><button class="act-btn danger" onclick="confirmDeletePost('${p.id}',${JSON.stringify(esc(p.content||'(media post)'))})">Delete</button></td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="5" class="empty-state">No posts yet.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ── POSTS ── */
+let postSearch = '';
+async function renderPosts(main) {
+  main.innerHTML = `<div class="page-hdr"><div><div class="page-title">All Posts</div><div class="page-sub">Manage user posts</div></div><button class="refresh-btn" onclick="renderPosts(document.getElementById('main-area'))">↻ Refresh</button></div><div class="content"><div class="loader">Loading…</div></div>`;
+  await loadAllPosts(main);
+}
+async function loadAllPosts(main) {
+  const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url)').order('created_at',{ascending:false}).limit(200);
+  allPosts = posts || [];
+  renderPostsTable(main, allPosts);
+}
+function renderPostsTable(main, posts) {
+  const filtered = postSearch ? posts.filter(p => (p.content||'').toLowerCase().includes(postSearch.toLowerCase()) || (p.profiles?.username||'').toLowerCase().includes(postSearch.toLowerCase())) : posts;
+  const content = main.querySelector('.content');
+  content.innerHTML = `
+    <div class="tbl-card">
+      <div class="tbl-hdr">
+        <div class="tbl-hdr-title">${filtered.length} posts</div>
+        <input class="tbl-search" placeholder="Search posts…" value="${esc(postSearch)}" oninput="postSearch=this.value;renderPostsTable(document.getElementById('main-area'),allPosts)">
+      </div>
+      <table>
+        <thead><tr><th>User</th><th>Content</th><th>Media</th><th>Likes</th><th>Comments</th><th>Posted</th><th></th></tr></thead>
+        <tbody>${filtered.map(p => {
+          const pr = p.profiles;
+          const av = pr?.avatar_url ? `<img src="${esc(pr.avatar_url)}" alt="">` : esc(((pr?.display_name||pr?.username||'?')[0]).toUpperCase());
+          const mediaCount = (p.media_urls||[]).length;
+          const tags = (p.tags||[]).map(t => `<span style="color:var(--accent);font-size:10px">#${esc(t)}</span>`).join(' ');
+          return `<tr>
+            <td><div style="display:flex;align-items:center;gap:8px"><div class="td-avatar">${av}</div><div><div>@${esc(pr?.username||'?')}</div><div class="td-dim" style="font-size:10px">${esc(pr?.display_name||'')}</div></div></div></td>
+            <td style="max-width:220px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.content||'').slice(0,80)||'<span style="color:var(--text-dim)">no text</span>'}</div>${tags?`<div style="margin-top:2px">${tags}</div>`:''}</td>
+            <td>${mediaCount ? `<span class="badge badge-yellow">${mediaCount} file${mediaCount>1?'s':''}</span>` : '<span class="td-dim">—</span>'}</td>
+            <td>${p.likes_count||0}</td>
+            <td>${p.comments_count||0}</td>
+            <td class="td-dim" style="white-space:nowrap">${relTime(p.created_at)}</td>
+            <td><button class="act-btn danger" onclick="confirmDeletePost('${p.id}',${JSON.stringify(esc((p.content||'(media post)').slice(0,100)))})">Delete</button></td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🫧</div>No posts found.</div></td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ── USERS ── */
+let userSearch = '';
+async function renderUsers(main) {
+  main.innerHTML = `<div class="page-hdr"><div><div class="page-title">Users</div><div class="page-sub">Manage all accounts</div></div><button class="refresh-btn" onclick="renderUsers(document.getElementById('main-area'))">↻ Refresh</button></div><div class="content"><div class="loader">Loading…</div></div>`;
+  const { data: users } = await sb.from('profiles').select('*').order('created_at',{ascending:false});
+  allUsers = users || [];
+  renderUsersTable(main, allUsers);
+}
+function renderUsersTable(main, users) {
+  const filtered = userSearch ? users.filter(u => u.username.toLowerCase().includes(userSearch.toLowerCase()) || u.display_name.toLowerCase().includes(userSearch.toLowerCase())) : users;
+  const content = main.querySelector('.content');
+  content.innerHTML = `
+    <div class="tbl-card">
+      <div class="tbl-hdr">
+        <div class="tbl-hdr-title">${filtered.length} users</div>
+        <input class="tbl-search" placeholder="Search users…" value="${esc(userSearch)}" oninput="userSearch=this.value;renderUsersTable(document.getElementById('main-area'),allUsers)">
+      </div>
+      <table>
+        <thead><tr><th>User</th><th>Username</th><th>Posts</th><th>Followers</th><th>Following</th><th>Joined</th><th>Type</th></tr></thead>
+        <tbody>${filtered.map(u => {
+          const av = u.avatar_url ? `<img src="${esc(u.avatar_url)}" alt="">` : esc(((u.display_name||u.username||'?')[0]).toUpperCase());
+          const isAdmin = u.username === ADMIN_USERNAME;
+          const isCB = u.id ? false : false; // CB users have derived emails
+          return `<tr>
+            <td><div style="display:flex;align-items:center;gap:8px"><div class="td-avatar">${av}</div><div>${esc(u.display_name||u.username)}</div></div></td>
+            <td><span style="color:var(--text-muted)">@${esc(u.username)}</span></td>
+            <td>${u.posts_count||0}</td>
+            <td>${u.followers_count||0}</td>
+            <td>${u.following_count||0}</td>
+            <td class="td-dim">${relTime(u.created_at)}</td>
+            <td>${isAdmin ? '<span class="badge badge-red">Admin</span>' : '<span class="badge badge-green">User</span>'}</td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🫧</div>No users found.</div></td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ── DELETE POST ── */
+let pendingDeletePostId = null;
+function confirmDeletePost(postId, preview) {
+  pendingDeletePostId = postId;
+  document.getElementById('confirm-title').textContent = 'Delete Post?';
+  document.getElementById('confirm-body').textContent = 'This will permanently delete the post and all its likes and comments.';
+  const detail = document.getElementById('confirm-detail');
+  detail.textContent = preview; detail.style.display = 'block';
+  document.getElementById('confirm-ok').onclick = doDeletePost;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); pendingDeletePostId=null; }
+async function doDeletePost() {
+  if (!pendingDeletePostId) return;
+  const btn = document.getElementById('confirm-ok');
+  btn.disabled=true; btn.textContent='Deleting…';
+  const { error } = await sb.from('posts').delete().eq('id', pendingDeletePostId);
+  closeConfirm();
+  btn.disabled=false; btn.textContent='Confirm';
+  if (error) { showToast('Delete failed: '+error.message,'error'); return; }
+  showToast('Post deleted.','success');
+  showSection(currentSection);
+}
+
+/* ── UTILS ── */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function relTime(ts){const d=Date.now()-new Date(ts).getTime(),s=Math.floor(d/1000),m=Math.floor(s/60),h=Math.floor(m/60),dd=Math.floor(h/24);if(s<60)return s+'s';if(m<60)return m+'m';if(h<24)return h+'h';if(dd<30)return dd+'d';return new Date(ts).toLocaleDateString();}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),2800);}
+document.getElementById('confirm-modal').addEventListener('mousedown',function(e){if(e.target===this)closeConfirm();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeConfirm();});
+
+init();
+</script>
+</body>
+</html>
