@@ -556,6 +556,7 @@ async function loadCurrentProfile() {
   showView('feed');
   loadWhoToFollow();
   loadTrending();
+  preloadSearchCache().then(startSearchRefresh);
   // Admin button — only inject for Partials
   const slot = document.getElementById('admin-nav-slot');
   if (slot) {
@@ -623,9 +624,9 @@ function renderContent(raw) {
   // inline code
   t = t.replace(/`(.+?)`/g, '<code>$1</code>');
   // hashtags — #bubblefyp gets boosted in algorithm
-  t = t.replace(/#(\w+)/g, '<span class="tag" onclick="event.stopPropagation();showView(\'tag\',\'$1\')">#$1</span>');
+  t = t.replace(/#(\w+)/g, '<span class="tag" onclick="event.stopPropagation();showView(&quot;tag&quot;,&quot;$1&quot;)">#$1</span>');
   // mentions
-  t = t.replace(/@(\w+)/g, '<span class="mention" onclick="event.stopPropagation();openProfileByUsername(\'$1\')">@$1</span>');
+  t = t.replace(/@(\w+)/g, '<span class="mention" onclick="event.stopPropagation();openProfileByUsername(&quot;$1&quot;)">@$1</span>');
   // newlines
   t = t.replace(/\n/g, '<br>');
   return t;
@@ -871,6 +872,7 @@ async function submitPost() {
   pendingMediaFiles = []; renderMediaPreview();
   btn.disabled = false; btn.textContent = 'Bubble it';
   showToast('Posted!', 'success');
+  preloadSearchCache(); // refresh cache after new post
 
   // Manually prepend to feed (don't rely on realtime alone)
   const container = document.getElementById('feed-posts');
@@ -1123,27 +1125,42 @@ async function renderExplore(main) {
 }
 
 let exploreTimer = null;
-function doExploreSearch(val) { clearTimeout(exploreTimer); exploreTimer = setTimeout(() => runExploreSearch(val), 300); }
+function doExploreSearch(val) { clearTimeout(exploreTimer); exploreTimer = setTimeout(() => runExploreSearch(val), 120); }
 
-async function runExploreSearch(query) {
+function runExploreSearch(query) {
   const el = document.getElementById('explore-results');
   if (!el) return;
-  el.innerHTML = '<div class="feed-loader">Searching…</div>';
-  if (!query.trim()) {
-    const { data: posts } = await sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').order('created_at',{ascending:false}).limit(30);
-    el.innerHTML = (posts||[]).map(p => renderPostHTML(p)).join('') || '<div class="feed-empty">Nothing yet.</div>';
+  const q = query.trim().toLowerCase();
+
+  if (!q) {
+    // Show recent from cache, Partials first
+    let posts = [...searchCache.posts];
+    posts.sort((a,b) => {
+      const aP = ADMIN_USERNAMES.includes(a.profiles?.username?.toLowerCase()) ? 1 : 0;
+      const bP = ADMIN_USERNAMES.includes(b.profiles?.username?.toLowerCase()) ? 1 : 0;
+      return bP - aP || new Date(b.created_at) - new Date(a.created_at);
+    });
+    el.innerHTML = posts.slice(0,30).map(p => renderPostHTML(p)).join('') || '<div class="feed-empty">Nothing yet.</div>';
     return;
   }
-  const [{data:posts},{data:people}] = await Promise.all([
-    sb.from('posts').select('*, profiles(id,username,display_name,avatar_url,verified)').ilike('content',`%${query}%`).order('created_at',{ascending:false}).limit(20),
-    sb.from('profiles').select('*').or(`username.ilike.%${query}%,display_name.ilike.%${query}%`).limit(8)
-  ]);
+
+  // Filter from cache — instant, no network call
+  const people = searchCache.profiles.filter(p =>
+    p.username.toLowerCase().includes(q) || (p.display_name||'').toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  const posts = searchCache.posts.filter(p =>
+    (p.content||'').toLowerCase().includes(q) ||
+    (p.profiles?.username||'').toLowerCase().includes(q) ||
+    (p.profiles?.display_name||'').toLowerCase().includes(q) ||
+    (p.tags||[]).some(t => t.toLowerCase().includes(q))
+  ).slice(0, 20);
+
   let html = '';
-  if (people?.length) {
-    // Partials first in people results
+  if (people.length) {
     people.sort((a,b) => {
-      const aP = a.username?.toLowerCase()==='partials' ? 1 : 0;
-      const bP = b.username?.toLowerCase()==='partials' ? 1 : 0;
+      const aP = ADMIN_USERNAMES.includes(a.username?.toLowerCase()) ? 1 : 0;
+      const bP = ADMIN_USERNAMES.includes(b.username?.toLowerCase()) ? 1 : 0;
       return bP - aP;
     });
     html += `<div style="padding:12px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">People</div>`;
@@ -1152,12 +1169,12 @@ async function runExploreSearch(query) {
       const av = p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc(((p.display_name||p.username||'?')[0]).toUpperCase());
       return `<div style="padding:12px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
         <div class="who-avatar" onclick="openProfileById('${p.id}')">${av}</div>
-        <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}${p.verified||p.username?.toLowerCase()==="partials"?verifiedBadge():""}</div><div class="who-handle">@${esc(p.username)}</div></div>
+        <div class="who-info" onclick="openProfileById('${p.id}')"><div class="who-name">${esc(p.display_name||p.username)}${p.verified||ADMIN_USERNAMES.includes(p.username?.toLowerCase())?verifiedBadge():""}</div><div class="who-handle">@${esc(p.username)}</div></div>
         ${!isSelf?`<button class="follow-btn ${isF?'following':'follow'}" onclick="toggleFollowWho('${p.id}',this)">${isF?'Following':'Follow'}</button>`:''}
       </div>`;
     }).join('');
   }
-  if (posts?.length) {
+  if (posts.length) {
     html += `<div style="padding:12px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim)">Posts</div>`;
     html += posts.map(p => renderPostHTML(p)).join('');
   }
@@ -1230,8 +1247,50 @@ async function toggleFollowWho(userId, btn) {
   }
 }
 
+// ── SEARCH CACHE ──
+let searchCache = { profiles: [], posts: [], lastFetch: 0 };
+let searchRefreshTimer = null;
 let searchTimer = null;
-function debounceSearch(val) { clearTimeout(searchTimer); searchTimer=setTimeout(()=>{},300); }
+
+async function preloadSearchCache() {
+  const [{ data: profiles }, { data: posts }] = await Promise.all([
+    sb.from('profiles').select('id,username,display_name,avatar_url,verified,followers_count').order('followers_count',{ascending:false}).limit(200),
+    sb.from('posts').select('id,content,user_id,likes_count,comments_count,media_urls,tags,created_at,profiles(id,username,display_name,avatar_url,verified)').order('created_at',{ascending:false}).limit(300)
+  ]);
+  searchCache.profiles = profiles || [];
+  searchCache.posts = posts || [];
+  searchCache.lastFetch = Date.now();
+}
+
+function startSearchRefresh() {
+  clearInterval(searchRefreshTimer);
+  searchRefreshTimer = setInterval(preloadSearchCache, 60000); // refresh every 60s
+}
+
+function debounceSearch(val) { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSidebarSearch(val), 120); }
+
+function runSidebarSearch(val) {
+  const q = val.trim().toLowerCase();
+  const el = document.getElementById('who-to-follow');
+  if (!el) return;
+  if (!q) { loadWhoToFollow(); return; }
+  const matches = searchCache.profiles
+    .filter(function(p) { return p.id !== (currentUser && currentUser.id) && (p.username.toLowerCase().includes(q) || (p.display_name||'').toLowerCase().includes(q)); })
+    .slice(0, 5);
+  if (!matches.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:11px">No results.</div>'; return; }
+  el.innerHTML = matches.map(function(p) {
+    const isF = myFollowing.has(p.id);
+    const av = p.avatar_url ? '<img src="' + esc(p.avatar_url) + '" alt="">' : esc(((p.display_name||p.username||'?')[0]).toUpperCase());
+    const badge = (p.verified || ADMIN_USERNAMES.includes(p.username && p.username.toLowerCase())) ? verifiedBadge() : '';
+    const followCls = isF ? 'following' : 'follow';
+    const followTxt = isF ? 'Following' : 'Follow';
+    return '<div class="who-item">'
+      + '<div class="who-avatar" onclick="openProfileById('' + p.id + '')">' + av + '</div>'
+      + '<div class="who-info" onclick="openProfileById('' + p.id + '')"><div class="who-name">' + esc(p.display_name||p.username) + badge + '</div><div class="who-handle">@' + esc(p.username) + '</div></div>'
+      + '<button class="follow-btn ' + followCls + '" onclick="toggleFollowWho('' + p.id + '',this)">' + followTxt + '</button>'
+      + '</div>';
+  }).join('');
+}
 
 /* ── AUTH ── */
 function showLogin(){document.getElementById('login-form').style.display='block';document.getElementById('signup-form').style.display='none';document.getElementById('onboard-form').style.display='none';clearAuthError();}
