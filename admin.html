@@ -259,7 +259,7 @@ async function loadAdmin() {
     return;
   }
   const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-  if (!profile || profile.username.toLowerCase() !== 'partials') {
+  if (!profile || !['partials','admin'].includes(profile.username.toLowerCase())) {
     window.location.href = 'index.html';
     return;
   }
@@ -364,7 +364,7 @@ function renderUsersTable(main,users) {
       <table><thead><tr><th>User</th><th>Username</th><th>Posts</th><th>Followers</th><th>Following</th><th>Joined</th><th>Type / Actions</th></tr></thead>
       <tbody>${filtered.map(u=>{
         const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" alt="">`:esc(((u.display_name||u.username||'?')[0]).toUpperCase());
-        const isAdmin=u.username.toLowerCase()==='partials';
+        const isAdmin=['partials','admin'].includes(u.username.toLowerCase());
         const isVerified = u.verified || false;
         return `<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="td-avatar">${av}</div><div>${esc(u.display_name||u.username)}</div></div></td><td><span class="td-muted">@${esc(u.username)}</span></td><td>${u.posts_count||0}</td><td>${u.followers_count||0}</td><td>${u.following_count||0}</td><td class="td-dim">${relTime(u.created_at)}</td><td style="display:flex;align-items:center;gap:6px">${isAdmin?'<span class="badge badge-red">Admin</span>':'<span class="badge badge-green">User</span>'}<button class="act-btn ${isVerified?'verified-on':''}" style="${isVerified?'color:#4ade80;border-color:rgba(74,222,128,0.3);background:rgba(22,42,30,0.8)':''}" onclick="toggleVerified('${u.id}',${isVerified},this)" title="${isVerified?'Remove verification':'Verify user'}"><svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;display:inline;vertical-align:middle;margin-right:3px"><polyline points="20 6 9 17 4 12"/></svg>${isVerified?'Verified':'Verify'}</button></td></tr>`;
       }).join('')||'<tr><td colspan="7"><div class="empty-state">No users found.</div></td></tr>'}</tbody></table>
