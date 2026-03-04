@@ -561,7 +561,7 @@ async function loadCurrentProfile() {
   // Admin button — only inject for Partials
   const slot = document.getElementById('admin-nav-slot');
   if (slot) {
-    if (currentProfile.username.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
+    if (ADMIN_USERNAMES.includes(currentProfile.username.toLowerCase())) {
       slot.innerHTML = `<button class="nav-dd-item" id="admin-nav-link" style="color:var(--danger)" onclick="window.open('admin.html','_blank');closeNavDropdown()" onmouseover="this.style.background='var(--danger-dim)'" onmouseout="this.style.background=''"><svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin Dashboard</button>`;
     } else {
       slot.innerHTML = '';
