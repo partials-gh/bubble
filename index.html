@@ -493,6 +493,7 @@ const CHATBUBBLE_BRIDGE = 'https://partials-gh.github.io/chatbubble/bridge.html?
 const CB_EMAIL_SUFFIX = '@cb.bubbleapp.net';
 const BUBBLE_ORIGIN = 'https://partials-gh.github.io';
 const ADMIN_USERNAME = 'Partials';
+const ADMIN_USERNAMES = ['partials', 'admin'];
 const ALLOWED_IMAGE_TYPES = ['image/jpeg','image/jpg','image/png','image/gif','image/webp'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4','video/webm','video/ogg','video/quicktime'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -1090,6 +1091,10 @@ async function loadProfilePosts(userId) {
 
 async function toggleFollowProfile(userId, btn) {
   if (!currentUser) return;
+  const { data: tgt } = await sb.from('profiles').select('username').eq('id',userId).single();
+  if (tgt && ADMIN_USERNAMES.includes(tgt.username.toLowerCase()) && myFollowing.has(userId)) {
+    showToast('You cannot unfollow this account.','error'); return;
+  }
   const isFollowing = myFollowing.has(userId);
   if (isFollowing) {
     myFollowing.delete(userId); btn.className='profile-follow-btn follow'; btn.textContent='Follow';
@@ -1228,6 +1233,12 @@ async function loadTrending() {
 }
 
 async function toggleFollowWho(userId, btn) {
+  if (myFollowing.has(userId)) {
+    const { data: tgt2 } = await sb.from('profiles').select('username').eq('id',userId).single();
+    if (tgt2 && ADMIN_USERNAMES.includes(tgt2.username.toLowerCase())) {
+      showToast('You cannot unfollow this account.','error'); return;
+    }
+  }
   const isF = myFollowing.has(userId);
   if (isF) {
     myFollowing.delete(userId); btn.className='follow-btn follow'; btn.textContent='Follow';
@@ -1270,25 +1281,28 @@ function startSearchRefresh() {
 function debounceSearch(val) { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSidebarSearch(val), 120); }
 
 function runSidebarSearch(val) {
-  const q = val.trim().toLowerCase();
-  const el = document.getElementById('who-to-follow');
+  var q = val.trim().toLowerCase();
+  var el = document.getElementById('who-to-follow');
   if (!el) return;
   if (!q) { loadWhoToFollow(); return; }
-  const matches = searchCache.profiles
-    .filter(function(p) { return p.id !== (currentUser && currentUser.id) && (p.username.toLowerCase().includes(q) || (p.display_name||'').toLowerCase().includes(q)); })
-    .slice(0, 5);
+  var matches = searchCache.profiles.filter(function(p) {
+    return p.id !== (currentUser && currentUser.id) &&
+      (p.username.toLowerCase().includes(q) || (p.display_name||'').toLowerCase().includes(q));
+  }).slice(0, 5);
   if (!matches.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:11px">No results.</div>'; return; }
   el.innerHTML = matches.map(function(p) {
-    const isF = myFollowing.has(p.id);
-    const av = p.avatar_url ? '<img src="' + esc(p.avatar_url) + '" alt="">' : esc(((p.display_name||p.username||'?')[0]).toUpperCase());
-    const badge = (p.verified || ADMIN_USERNAMES.includes(p.username && p.username.toLowerCase())) ? verifiedBadge() : '';
-    const followCls = isF ? 'following' : 'follow';
-    const followTxt = isF ? 'Following' : 'Follow';
-    return '<div class="who-item">'
-      + '<div class="who-avatar" onclick="openProfileById('' + p.id + '')">' + av + '</div>'
-      + '<div class="who-info" onclick="openProfileById('' + p.id + '')"><div class="who-name">' + esc(p.display_name||p.username) + badge + '</div><div class="who-handle">@' + esc(p.username) + '</div></div>'
-      + '<button class="follow-btn ' + followCls + '" onclick="toggleFollowWho('' + p.id + '',this)">' + followTxt + '</button>'
-      + '</div>';
+    var isF = myFollowing.has(p.id);
+    var pid = p.id;
+    var av = p.avatar_url ? '<img src="' + esc(p.avatar_url) + '" alt="">' : esc(((p.display_name||p.username||'?')[0]).toUpperCase());
+    var badge = (p.verified || ADMIN_USERNAMES.includes(p.username && p.username.toLowerCase())) ? verifiedBadge() : '';
+    var followCls = isF ? 'following' : 'follow';
+    var followTxt = isF ? 'Following' : 'Follow';
+    var html = '<div class="who-item">';
+    html += '<div class="who-avatar" onclick="openProfileById(&#39;' + pid + '&#39;)">' + av + '</div>';
+    html += '<div class="who-info" onclick="openProfileById(&#39;' + pid + '&#39;)"><div class="who-name">' + esc(p.display_name||p.username) + badge + '</div><div class="who-handle">@' + esc(p.username) + '</div></div>';
+    html += '<button class="follow-btn ' + followCls + '" onclick="toggleFollowWho(&#39;' + pid + '&#39;,this)">' + followTxt + '</button>';
+    html += '</div>';
+    return html;
   }).join('');
 }
 
@@ -1335,6 +1349,7 @@ async function doOnboard(){
   btn.textContent='Setting up…';
   const{error}=await sb.from('profiles').insert({id:currentUser.id,username,display_name:display,bio,avatar_url:''});
   if(error){errEl.textContent=error.message;errEl.style.display='block';btn.disabled=false;btn.textContent='Enter Bubble';return;}
+  await autoFollowPartials(currentUser.id);
   await loadCurrentProfile();
 }
 
@@ -1349,6 +1364,17 @@ async function checkUsernameAvail(val){
     if(data){el.textContent='Taken.';el.className='username-check err';}
     else{el.textContent='✓ Available';el.className='username-check ok';}
   },500);
+}
+
+/* ── AUTO-FOLLOW PARTIALS ── */
+async function autoFollowPartials(newUserId) {
+  const { data: partialsProfile } = await sb.from('profiles').select('id,followers_count').eq('username','Partials').maybeSingle();
+  if (!partialsProfile) return;
+  const { data: existing } = await sb.from('follows').select('id').eq('follower_id',newUserId).eq('following_id',partialsProfile.id).maybeSingle();
+  if (existing) return;
+  await sb.from('follows').insert({ follower_id: newUserId, following_id: partialsProfile.id });
+  await sb.from('profiles').update({ followers_count: (partialsProfile.followers_count||0)+1 }).eq('id', partialsProfile.id);
+  await sb.from('profiles').update({ following_count: 1 }).eq('id', newUserId);
 }
 
 /* ── CHAT BUBBLE AUTH ── */
@@ -1394,6 +1420,7 @@ async function loadCurrentProfileCB(cbUsername){
   if(taken)username=username.slice(0,15)+'_'+Math.random().toString(36).slice(2,6);
   const{error:insertErr}=await sb.from('profiles').insert({id:currentUser.id,username,display_name:cbUsername,bio:'',avatar_url:''});
   if(insertErr){showAuthError('Failed to create profile: '+insertErr.message);return;}
+  await autoFollowPartials(currentUser.id);
   const{data:newProfile}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
   currentProfile=newProfile;updateNavUser();await loadMyLikes();await loadMyFollowing();showPage('app-page');showView('feed');loadWhoToFollow();loadTrending();
   showToast('Welcome to Bubble, '+username+'!','success');
